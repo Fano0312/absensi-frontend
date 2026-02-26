@@ -672,7 +672,23 @@ function AdminDashboard({ user, token, onLogout }) {
 export default function App() {
   const [user,setUser]=useState(()=>{try{return JSON.parse(localStorage.getItem("user"));}catch{return null;}});
   const [token,setToken]=useState(()=>localStorage.getItem("token")||null);
-  const login=(u,t)=>{setUser(u);setToken(t);};
+
+  // ── Auto-refresh data user dari server supaya prodi/semester selalu terbaru ──
+  useEffect(()=>{
+    const savedToken=localStorage.getItem("token");
+    if (!savedToken) return;
+    fetch(API+"/auth/me",{headers:{Authorization:`Bearer ${savedToken}`}})
+      .then(r=>r.json())
+      .then(freshUser=>{
+        if (freshUser.id){
+          localStorage.setItem("user",JSON.stringify(freshUser));
+          setUser(freshUser);
+        }
+      })
+      .catch(()=>{});
+  },[]);
+
+  const login=(u,t)=>{localStorage.setItem("token",t);localStorage.setItem("user",JSON.stringify(u));setUser(u);setToken(t);};
   const logout=()=>{localStorage.removeItem("token");localStorage.removeItem("user");setUser(null);setToken(null);};
   if (!user) return <LoginPage onLogin={login} />;
   if (user.role==="admin") return <AdminDashboard user={user} token={token} onLogout={logout} />;
