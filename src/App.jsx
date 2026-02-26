@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 
-const API = "https://absensi-backend-production-7b1d.up.railway.app/api";
+const API = "http://localhost:5000/api";
 const KAMPUS = { lat: -8.4539, lng: 119.8851, nama: "Politeknik eLBajo Commodus" };
 const RADIUS_METER = 100;
-const TOLERANSI_MENIT = 30; // bisa absen 30 menit setelah jam mulai
 
 function hitungJarak(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -13,14 +12,12 @@ function hitungJarak(lat1, lng1, lat2, lng2) {
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-// Parse jam dari string "08:00 - 10:00" atau "08:00-10:00"
 function parseJam(timeStr) {
   if (!timeStr) return null;
   const parts = timeStr.replace(/\s/g,"").split("-");
   if (parts.length < 2) return null;
-  const [jamMulai, jamSelesai] = parts;
-  const [h1, m1] = jamMulai.split(":").map(Number);
-  const [h2, m2] = jamSelesai.split(":").map(Number);
+  const [h1,m1] = parts[0].split(":").map(Number);
+  const [h2,m2] = parts[1].split(":").map(Number);
   if (isNaN(h1)||isNaN(m1)||isNaN(h2)||isNaN(m2)) return null;
   return { mulai: h1*60+m1, selesai: h2*60+m2 };
 }
@@ -29,17 +26,12 @@ function cekJamAbsen(timeStr) {
   const jam = parseJam(timeStr);
   if (!jam) return { boleh: true, pesan: "" };
   const now = new Date();
-  const menitSekarang = now.getHours()*60 + now.getMinutes();
-  const batasAwal = jam.mulai - 0; // tepat jam mulai
-  const batasAkhir = jam.selesai;  // sampai jam selesai
-  if (menitSekarang < batasAwal) {
-    const selisih = batasAwal - menitSekarang;
-    const jam_ = Math.floor(selisih/60), mnt = selisih%60;
-    return { boleh: false, pesan: `Belum waktunya! Kuliah mulai jam ${timeStr.split("-")[0].trim()}. ${jam_>0?jam_+"j ":""}${mnt}m lagi.` };
+  const menit = now.getHours()*60+now.getMinutes();
+  if (menit < jam.mulai) {
+    const s = jam.mulai-menit;
+    return { boleh: false, pesan: `Belum waktunya! Kuliah mulai jam ${timeStr.split("-")[0].trim()}. ${Math.floor(s/60)>0?Math.floor(s/60)+"j ":""}${s%60}m lagi.` };
   }
-  if (menitSekarang > batasAkhir) {
-    return { boleh: false, pesan: `Waktu absen sudah habis! Kuliah berakhir jam ${timeStr.split("-").pop().trim()}.` };
-  }
+  if (menit > jam.selesai) return { boleh: false, pesan: `Waktu absen sudah habis! Kuliah berakhir jam ${timeStr.split("-").pop().trim()}.` };
   return { boleh: true, pesan: "" };
 }
 
@@ -61,20 +53,21 @@ const css = `
   .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
   .card{background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 1px 8px rgba(0,0,0,.07);border:1px solid #e2e8f0;margin-bottom:12px;}
   .stat-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.06);border:1px solid #e2e8f0;}
-  .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:12px 28px;border-radius:30px;font-weight:700;font-size:14px;z-index:2000;box-shadow:0 4px 20px rgba(0,0,0,.2);white-space:nowrap;}
+  .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);color:#fff;padding:12px 28px;border-radius:30px;font-weight:700;font-size:14px;z-index:2000;box-shadow:0 4px 20px rgba(0,0,0,.2);white-space:nowrap;}
   .input{width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:14px;font-family:'Outfit',sans-serif;outline:none;transition:border .2s;}
   .input:focus{border-color:#1d4ed8;}
-  .btn{padding:12px 24px;border:none;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;font-family:'Outfit',sans-serif;}
+  .btn{padding:12px 20px;border:none;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;font-family:'Outfit',sans-serif;transition:opacity .2s;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
   .btn-primary{background:linear-gradient(135deg,#1d4ed8,#0ea5e9);color:#fff;}
-  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-success{background:linear-gradient(135deg,#059669,#10b981);color:#fff;}
+  .btn-warning{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;}
   .btn-secondary{background:#f0f4ff;color:#64748b;}
-  .btn-danger{background:#ef4444;color:#fff;}
   .btn-full{width:100%;padding:14px;}
   .si{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;border:none;background:transparent;color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;font-size:14px;width:100%;text-align:left;transition:background .2s;}
   .si.active{background:rgba(255,255,255,.2);font-weight:700;}
   .si.logout{color:rgba(255,255,255,.6);}
   .nav-tabs{display:flex;background:#f0f4ff;border-radius:12px;padding:4px;gap:4px;}
-  .nav-tab{flex:1;padding:10px 0;background:transparent;border:none;cursor:pointer;border-radius:10px;transition:.2s;font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;color:#64748b;}
+  .nav-tab{flex:1;padding:10px 0;background:transparent;border:none;cursor:pointer;border-radius:10px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:500;color:#64748b;transition:.2s;}
   .nav-tab.active{background:#fff;color:#1d4ed8;font-weight:700;}
   .mini4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
@@ -107,20 +100,6 @@ function Badge({ status }) {
   return <span style={{background:c.bg,color:c.color,padding:"3px 12px",borderRadius:20,fontSize:12,fontWeight:600}}>{c.label}</span>;
 }
 
-function JamBadge({ timeStr }) {
-  const cek = cekJamAbsen(timeStr);
-  const jam = parseJam(timeStr);
-  if (!jam) return null;
-  const now = new Date();
-  const menit = now.getHours()*60+now.getMinutes();
-  const sedangBerlangsung = menit >= jam.mulai && menit <= jam.selesai;
-  return (
-    <span style={{background:sedangBerlangsung?"#d1fae5":cek.boleh?"#f0fdf4":"#fee2e2",color:sedangBerlangsung?"#065f46":"#991b1b",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600,marginLeft:6}}>
-      {sedangBerlangsung?"🟢 Berlangsung":"🔴 Di luar jam"}
-    </span>
-  );
-}
-
 // ── Login ────────────────────────────────────────────────────────────────────
 function LoginPage({ onLogin }) {
   const [nim,setNim]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [loading,setLoading]=useState(false);
@@ -129,7 +108,7 @@ function LoginPage({ onLogin }) {
     setLoading(true); setErr("");
     try {
       const r = await api.post("/auth/login",{nim,password:pw});
-      if (r.token) { localStorage.setItem("token",r.token); localStorage.setItem("user",JSON.stringify(r.user)); onLogin(r.user,r.token); }
+      if (r.token){localStorage.setItem("token",r.token);localStorage.setItem("user",JSON.stringify(r.user));onLogin(r.user,r.token);}
       else setErr(r.message||"Login gagal");
     } catch { setErr("Tidak bisa konek ke server!"); }
     setLoading(false);
@@ -150,7 +129,7 @@ function LoginPage({ onLogin }) {
         </div>
         <div style={{marginBottom:24}}>
           <label style={{fontSize:13,fontWeight:600,color:"#1e293b",display:"block",marginBottom:6}}>Password</label>
-          <input className="input" type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="Masukkan password..." onKeyDown={e=>e.key==="Enter"&&login()} />
+          <input className="input" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="Masukkan password..." />
         </div>
         <button className="btn btn-primary btn-full" onClick={login} disabled={loading}>{loading?"Memverifikasi...":"Masuk →"}</button>
       </div>
@@ -158,189 +137,140 @@ function LoginPage({ onLogin }) {
   );
 }
 
-// ── Modal Absen dengan Geofencing + Cek Jam ──────────────────────────────────
-function AbsenModal({ course, token, onClose, onSuccess }) {
+// ── Modal Kamera untuk Selfie ────────────────────────────────────────────────
+function KameraModal({ onPhoto, onClose }) {
   const videoRef=useRef(null); const canvasRef=useRef(null);
   const [stream,setStream]=useState(null);
-  const [photo,setPhoto]=useState(null); const [blob,setBlob]=useState(null);
-  const [lokasi,setLokasi]=useState(null); const [jarak,setJarak]=useState(null);
-  const [statusLokasi,setStatusLokasi]=useState("loading");
-  const [step,setStep]=useState("cek");
-  const [loading,setLoading]=useState(false);
-  const [jamCek]=useState(()=>cekJamAbsen(course.time));
-  const [waktuSekarang,setWaktuSekarang]=useState(new Date());
 
   useEffect(()=>{
-    const t=setInterval(()=>setWaktuSekarang(new Date()),1000);
-    return ()=>clearInterval(t);
+    navigator.mediaDevices?.getUserMedia({video:{facingMode:"user"}})
+      .then(s=>{setStream(s);if(videoRef.current)videoRef.current.srcObject=s;})
+      .catch(()=>{});
+    return ()=>stream?.getTracks().forEach(t=>t.stop());
   },[]);
 
-  useEffect(()=>{
-    navigator.geolocation?.getCurrentPosition(
-      pos=>{
-        const lat=pos.coords.latitude,lng=pos.coords.longitude;
-        setLokasi({lat,lng});
-        setJarak(hitungJarak(lat,lng,KAMPUS.lat,KAMPUS.lng));
-        setStatusLokasi(hitungJarak(lat,lng,KAMPUS.lat,KAMPUS.lng)<=RADIUS_METER?"ok":"jauh");
-      },
-      ()=>setStatusLokasi("gagal"),
-      {enableHighAccuracy:true,timeout:10000}
-    );
-  },[]);
-
-  const mulaiKamera = ()=>{
-    setStep("camera");
-    navigator.mediaDevices?.getUserMedia({video:{facingMode:"user"}}).then(s=>{setStream(s);if(videoRef.current)videoRef.current.srcObject=s;}).catch(()=>{});
+  const ambil = () => {
+    const c=canvasRef.current,v=videoRef.current;
+    c.width=v.videoWidth||320; c.height=v.videoHeight||240;
+    c.getContext("2d").drawImage(v,0,0);
+    c.toBlob(blob=>{
+      stream?.getTracks().forEach(t=>t.stop());
+      onPhoto(c.toDataURL("image/jpeg"), blob);
+    },"image/jpeg");
   };
 
-  const takePhoto=()=>{
-    const c=canvasRef.current,v=videoRef.current;
-    c.width=v.videoWidth||320;c.height=v.videoHeight||240;
-    c.getContext("2d").drawImage(v,0,0);
-    setPhoto(c.toDataURL("image/jpeg"));
-    c.toBlob(b=>setBlob(b),"image/jpeg");
-    stream?.getTracks().forEach(t=>t.stop());
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16}}>
+      <div style={{background:"#000",borderRadius:20,overflow:"hidden",width:"100%",maxWidth:400,position:"relative",marginBottom:16}}>
+        <video ref={videoRef} autoPlay playsInline style={{width:"100%",display:"block"}} />
+        <div style={{position:"absolute",inset:12,border:"2px solid rgba(255,255,255,.4)",borderRadius:12}} />
+      </div>
+      <canvas ref={canvasRef} style={{display:"none"}} />
+      <div style={{display:"flex",gap:12}}>
+        <button className="btn btn-secondary" onClick={onClose}>Batal</button>
+        <button className="btn btn-primary" onClick={ambil}>📸 Ambil Foto</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal Absen Masuk / Pulang ───────────────────────────────────────────────
+function AbsenModal({ course, tipe, token, lokasi, jarak, onClose, onSuccess }) {
+  const [step,setStep]=useState("foto"); // foto | confirm | loading | success | error
+  const [photo,setPhoto]=useState(null);
+  const [blob,setBlob]=useState(null);
+  const [pesanError,setPesanError]=useState("");
+
+  const handlePhoto = (dataUrl, blobData) => {
+    setPhoto(dataUrl);
+    setBlob(blobData);
     setStep("confirm");
   };
 
-  const submit=async()=>{
+  const submit = async () => {
+    setStep("loading");
     // Cek jam lagi saat submit
     const cekUlang = cekJamAbsen(course.time);
-    if (!cekUlang.boleh) { alert("⏰ "+cekUlang.pesan); return; }
-    setLoading(true);
-    const f=new FormData();
-    f.append("matkul_id",course.id);
-    if (lokasi){f.append("latitude",lokasi.lat);f.append("longitude",lokasi.lng);}
-    if (blob) f.append("foto",blob,"selfie.jpg");
-    const r=await api.postForm("/absensi/checkin",f,token);
-    if (r.message==="Absensi berhasil!"){setStep("success");setTimeout(()=>{onSuccess();onClose();},1800);}
-    else{alert(r.message);setLoading(false);}
+    if (!cekUlang.boleh) { setPesanError("⏰ "+cekUlang.pesan); setStep("error"); return; }
+
+    const formData = new FormData();
+    formData.append("matkul_id", course.id);
+    formData.append("tipe", tipe); // masuk / pulang
+    if (lokasi) { formData.append("latitude", lokasi.lat); formData.append("longitude", lokasi.lng); }
+    if (blob) formData.append("foto", blob, "selfie.jpg");
+
+    try {
+      const r = await api.postForm("/absensi/checkin", formData, token);
+      if (r.message==="Absensi berhasil!" || r.message?.includes("berhasil")) {
+        setStep("success");
+        setTimeout(()=>{ onSuccess(); onClose(); }, 1800);
+      } else { setPesanError(r.message||"Gagal absen"); setStep("error"); }
+    } catch { setPesanError("Tidak bisa konek ke server!"); setStep("error"); }
   };
 
-  const jam=parseJam(course.time);
-  const menitNow=waktuSekarang.getHours()*60+waktuSekarang.getMinutes();
-  const sedangBerlangsung=jam&&menitNow>=jam.mulai&&menitNow<=jam.selesai;
+  const warna = tipe==="masuk" ? "#1d4ed8" : "#d97706";
+  const label = tipe==="masuk" ? "Absen Masuk" : "Absen Pulang";
+  const emoji = tipe==="masuk" ? "🟢" : "🔴";
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:1000}}>
       <div style={{background:"#fff",borderRadius:"24px 24px 0 0",padding:24,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto"}} className="fade-in">
-        {/* Header modal */}
+
+        {/* Header */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <div>
-            <div style={{fontWeight:700,fontSize:16,color:"#1e293b"}}>📋 {course.name}</div>
-            <div style={{fontSize:12,color:"#64748b",marginTop:2}}>
-              {course.code} • ⏰ {course.time}
-              <span style={{marginLeft:6,background:sedangBerlangsung?"#d1fae5":"#fee2e2",color:sedangBerlangsung?"#065f46":"#991b1b",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:700}}>
-                {sedangBerlangsung?"🟢 Berlangsung":"🔴 Di luar jam"}
-              </span>
-            </div>
+            <div style={{fontWeight:700,fontSize:16,color:"#1e293b"}}>{emoji} {label}</div>
+            <div style={{fontSize:12,color:"#64748b"}}>{course.name} • {course.time}</div>
           </div>
           <button onClick={onClose} style={{border:"none",background:"#f0f4ff",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:18}}>✕</button>
         </div>
 
-        {/* Jam sekarang */}
-        <div style={{background:"#f8faff",borderRadius:12,padding:"10px 14px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:13,color:"#64748b"}}>🕐 Jam sekarang</div>
-          <div style={{fontWeight:800,fontSize:18,color:"#1e293b"}}>
-            {waktuSekarang.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
-          </div>
+        {/* Info lokasi */}
+        <div style={{background:"#f0fdf4",borderRadius:12,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#065f46",fontWeight:600}}>
+          ✅ Lokasi terverifikasi • {Math.round(jarak)}m dari kampus
         </div>
 
-        {/* Cek jam kuliah */}
-        {!jamCek.boleh && (
-          <div style={{background:"#fee2e2",borderRadius:14,padding:20,textAlign:"center",marginBottom:12}}>
-            <div style={{fontSize:48,marginBottom:10}}>⏰</div>
-            <div style={{fontWeight:800,color:"#991b1b",fontSize:16}}>Di Luar Jam Kuliah!</div>
-            <div style={{fontSize:13,color:"#7f1d1d",marginTop:8,lineHeight:1.6}}>{jamCek.pesan}</div>
-            <div style={{fontSize:12,color:"#64748b",marginTop:8}}>Jam kuliah: <b>{course.time}</b></div>
-            <button className="btn btn-secondary" onClick={onClose} style={{marginTop:16,width:"100%"}}>Tutup</button>
+        {step==="foto" && <KameraModal onPhoto={handlePhoto} onClose={onClose} />}
+
+        {step==="confirm" && (
+          <>
+            <img src={photo} style={{width:"100%",borderRadius:16,marginBottom:16}} alt="selfie" />
+            <div style={{background:"#f8faff",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#1e293b"}}>
+              <div style={{fontWeight:600,marginBottom:4}}>{emoji} {label}</div>
+              <div style={{color:"#64748b"}}>📅 {new Date().toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+              <div style={{color:"#64748b"}}>🕐 {new Date().toLocaleTimeString("id-ID")}</div>
+              <div style={{color:"#10b981",marginTop:4}}>📍 {Math.round(jarak)}m dari kampus</div>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button className="btn btn-secondary" onClick={()=>setStep("foto")} style={{flex:1}}>📷 Ulangi</button>
+              <button className="btn" onClick={submit} style={{flex:2,background:warna,color:"#fff"}}>✓ Konfirmasi {label}</button>
+            </div>
+          </>
+        )}
+
+        {step==="loading" && (
+          <div style={{textAlign:"center",padding:32}}>
+            <div style={{fontSize:48,marginBottom:12}} className="pulse">⏳</div>
+            <div style={{fontWeight:600,color:"#1e293b"}}>Menyimpan absensi...</div>
           </div>
         )}
 
-        {/* Konten absen (hanya tampil jika jam OK) */}
-        {jamCek.boleh && (
-          <>
-            {step==="cek" && (
-              <>
-                {statusLokasi==="loading" && (
-                  <div style={{textAlign:"center",padding:28}}>
-                    <div style={{fontSize:48,marginBottom:12}} className="pulse">📍</div>
-                    <div style={{fontWeight:600,color:"#1e293b"}}>Mengecek lokasi...</div>
-                    <div style={{fontSize:13,color:"#64748b",marginTop:6}}>Pastikan GPS aktif</div>
-                  </div>
-                )}
-                {statusLokasi==="ok" && (
-                  <>
-                    <div style={{borderRadius:14,overflow:"hidden",border:"3px solid #10b981",marginBottom:12}}>
-                      <iframe src={`https://www.openstreetmap.org/export/embed.html?bbox=${KAMPUS.lng-.003},${KAMPUS.lat-.003},${KAMPUS.lng+.003},${KAMPUS.lat+.003}&layer=mapnik&marker=${KAMPUS.lat},${KAMPUS.lng}`} width="100%" height="200" style={{border:"none",display:"block"}} title="Peta" />
-                    </div>
-                    <div style={{background:"#f0fdf4",borderRadius:12,padding:"10px 14px",marginBottom:16}}>
-                      <div style={{fontSize:13,fontWeight:600,color:"#065f46"}}>✅ Lokasi terverifikasi</div>
-                      <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Jarak ke kampus: <b>{Math.round(jarak)} meter</b></div>
-                    </div>
-                    <button className="btn btn-primary btn-full" onClick={mulaiKamera}>📸 Ambil Foto Selfie</button>
-                  </>
-                )}
-                {statusLokasi==="jauh" && (
-                  <>
-                    <div style={{borderRadius:14,overflow:"hidden",border:"3px solid #ef4444",marginBottom:12}}>
-                      <iframe src={`https://www.openstreetmap.org/export/embed.html?bbox=${KAMPUS.lng-.003},${KAMPUS.lat-.003},${KAMPUS.lng+.003},${KAMPUS.lat+.003}&layer=mapnik&marker=${KAMPUS.lat},${KAMPUS.lng}`} width="100%" height="200" style={{border:"none",display:"block"}} title="Peta" />
-                    </div>
-                    <div style={{background:"#fee2e2",borderRadius:14,padding:18,textAlign:"center"}}>
-                      <div style={{fontSize:36,marginBottom:8}}>🚫</div>
-                      <div style={{fontWeight:700,color:"#991b1b",fontSize:16}}>Di Luar Area Kampus!</div>
-                      <div style={{fontSize:13,color:"#7f1d1d",marginTop:6}}>Kamu berada <b>{Math.round(jarak)} meter</b> dari kampus.<br/>Absen hanya bisa dalam radius <b>{RADIUS_METER} meter</b>.</div>
-                    </div>
-                    <button className="btn btn-secondary" onClick={onClose} style={{width:"100%",marginTop:12}}>Tutup</button>
-                  </>
-                )}
-                {statusLokasi==="gagal" && (
-                  <div style={{textAlign:"center",padding:24}}>
-                    <div style={{fontSize:48,marginBottom:12}}>❌</div>
-                    <div style={{fontWeight:700,color:"#991b1b"}}>GPS Tidak Aktif!</div>
-                    <div style={{fontSize:13,color:"#64748b",marginTop:8}}>Aktifkan GPS di HP kamu lalu coba lagi.</div>
-                    <button className="btn btn-secondary" onClick={onClose} style={{marginTop:16}}>Tutup</button>
-                  </div>
-                )}
-              </>
-            )}
+        {step==="success" && (
+          <div style={{textAlign:"center",padding:28}}>
+            <div style={{fontSize:72,marginBottom:16}}>{tipe==="masuk"?"✅":"👋"}</div>
+            <div style={{fontWeight:800,fontSize:22,color:"#10b981"}}>{label} Berhasil!</div>
+            <div style={{fontSize:14,color:"#64748b",marginTop:8}}>{new Date().toLocaleTimeString("id-ID")}</div>
+            <div style={{fontSize:13,color:"#1d4ed8",marginTop:4}}>📍 Terverifikasi di kampus</div>
+          </div>
+        )}
 
-            {step==="camera" && (
-              <>
-                <div style={{background:"#000",borderRadius:16,overflow:"hidden",marginBottom:14,height:250,position:"relative"}}>
-                  <video ref={videoRef} autoPlay playsInline style={{width:"100%",height:"100%",objectFit:"cover"}} />
-                  <div style={{position:"absolute",inset:12,border:"2px solid rgba(255,255,255,.4)",borderRadius:12}} />
-                </div>
-                <canvas ref={canvasRef} style={{display:"none"}} />
-                <div style={{background:"#f0fdf4",borderRadius:10,padding:"8px 14px",fontSize:12,color:"#065f46",marginBottom:12}}>
-                  ✅ Lokasi OK • {Math.round(jarak)}m dari kampus • ⏰ {course.time}
-                </div>
-                <button className="btn btn-primary btn-full" onClick={takePhoto}>📸 Ambil Foto</button>
-              </>
-            )}
-
-            {step==="confirm" && (
-              <>
-                <img src={photo} style={{width:"100%",borderRadius:16,marginBottom:14}} alt="selfie" />
-                <div style={{background:"#f0fdf4",borderRadius:10,padding:"8px 14px",fontSize:12,color:"#065f46",marginBottom:14}}>
-                  ✅ {Math.round(jarak)}m dari kampus • ⏰ {course.time}
-                </div>
-                <div style={{display:"flex",gap:10}}>
-                  <button className="btn btn-secondary" onClick={()=>setStep("camera")} style={{flex:1}}>Ulangi</button>
-                  <button className="btn btn-primary" onClick={submit} disabled={loading} style={{flex:2}}>{loading?"Menyimpan...":"✓ Konfirmasi Absen"}</button>
-                </div>
-              </>
-            )}
-
-            {step==="success" && (
-              <div style={{textAlign:"center",padding:28}}>
-                <div style={{fontSize:72,marginBottom:16}}>✅</div>
-                <div style={{fontWeight:800,fontSize:22,color:"#10b981"}}>Absensi Berhasil!</div>
-                <div style={{fontSize:14,color:"#64748b",marginTop:8}}>{new Date().toLocaleString("id-ID")}</div>
-                <div style={{fontSize:13,color:"#1d4ed8",marginTop:4}}>📍 Terverifikasi di kampus</div>
-              </div>
-            )}
-          </>
+        {step==="error" && (
+          <div style={{textAlign:"center",padding:24}}>
+            <div style={{fontSize:48,marginBottom:12}}>❌</div>
+            <div style={{fontWeight:700,color:"#991b1b",fontSize:16}}>Gagal!</div>
+            <div style={{fontSize:13,color:"#64748b",marginTop:8}}>{pesanError}</div>
+            <button className="btn btn-secondary" onClick={onClose} style={{marginTop:16,width:"100%"}}>Tutup</button>
+          </div>
         )}
       </div>
     </div>
@@ -352,11 +282,11 @@ function MahasiswaDashboard({ user, token, onLogout }) {
   const [tab,setTab]=useState("home");
   const [courses,setCourses]=useState([]);
   const [riwayat,setRiwayat]=useState([]);
-  const [selected,setSelected]=useState(null);
-  const [toast,setToast]=useState("");
+  const [modal,setModal]=useState(null); // {course, tipe}
+  const [toast,setToast]=useState({msg:"",type:"success"});
   const [lokasi,setLokasi]=useState(null);
   const [jarak,setJarak]=useState(null);
-  const [jamSekarang,setJamSekarang]=useState(new Date());
+  const [jam,setJam]=useState(new Date());
 
   useEffect(()=>{
     api.get("/matkul",token).then(d=>setCourses(Array.isArray(d)?d:[]));
@@ -365,7 +295,7 @@ function MahasiswaDashboard({ user, token, onLogout }) {
       setLokasi({lat:pos.coords.latitude,lng:pos.coords.longitude});
       setJarak(hitungJarak(pos.coords.latitude,pos.coords.longitude,KAMPUS.lat,KAMPUS.lng));
     },()=>{},{enableHighAccuracy:true});
-    const t=setInterval(()=>setJamSekarang(new Date()),1000);
+    const t=setInterval(()=>setJam(new Date()),1000);
     return()=>clearInterval(t);
   },[]);
 
@@ -376,8 +306,18 @@ function MahasiswaDashboard({ user, token, onLogout }) {
   const pct=riwayat.length>0?Math.round(hadir/riwayat.length*100):0;
   const dalamRadius=jarak!==null&&jarak<=RADIUS_METER;
 
-  const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(""),3000);};
-  const handleSuccess=()=>{api.get("/absensi/riwayat",token).then(d=>setRiwayat(Array.isArray(d)?d:[]));showToast("✅ Absensi berhasil!");};
+  const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast({msg:"",type:"success"}),3000);};
+
+  const refreshRiwayat=()=>api.get("/absensi/riwayat",token).then(d=>setRiwayat(Array.isArray(d)?d:[]));
+
+  // Cek status absen hari ini per matkul
+  const today=new Date().toISOString().split("T")[0];
+  const getStatusHariIni = (matkulId) => {
+    const absensiHariIni = riwayat.filter(a=>a.matkul_id===matkulId&&a.date===today);
+    const sudahMasuk = absensiHariIni.find(a=>a.tipe==="masuk"||!a.tipe);
+    const sudahPulang = absensiHariIni.find(a=>a.tipe==="pulang");
+    return { sudahMasuk, sudahPulang };
+  };
 
   return (
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#f0f4ff"}}>
@@ -392,34 +332,27 @@ function MahasiswaDashboard({ user, token, onLogout }) {
             <div style={{fontSize:12,opacity:.7,marginTop:2}}>{user.prodi} • Sem {user.semester}</div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:20,fontWeight:800}}>{jamSekarang.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</div>
-            <div style={{fontSize:11,opacity:.7}}>{jamSekarang.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"short"})}</div>
+            <div style={{fontSize:22,fontWeight:900}}>{jam.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</div>
+            <div style={{fontSize:11,opacity:.7}}>{jam.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"short"})}</div>
             <button onClick={onLogout} style={{background:"rgba(255,255,255,.2)",border:"none",borderRadius:10,padding:"4px 12px",color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",marginTop:4}}>Keluar</button>
           </div>
         </div>
-
-        {/* Status lokasi */}
         <div style={{background:"rgba(255,255,255,.15)",borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:20}}>{jarak===null?"📍":dalamRadius?"🏫":"⚠️"}</span>
           <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:600}}>
-              {jarak===null?"Mendeteksi lokasi...":dalamRadius?"Di dalam area kampus":"Di luar area kampus"}
-            </div>
-            {jarak!==null && <div style={{fontSize:11,opacity:.8}}>Jarak: {Math.round(jarak)}m dari kampus • Batas: {RADIUS_METER}m</div>}
+            <div style={{fontSize:13,fontWeight:600}}>{jarak===null?"Mendeteksi lokasi...":dalamRadius?"Di dalam area kampus":"Di luar area kampus"}</div>
+            {jarak!==null&&<div style={{fontSize:11,opacity:.8}}>Jarak: {Math.round(jarak)}m • Batas: {RADIUS_METER}m</div>}
           </div>
-          {jarak!==null && (
-            <span style={{background:dalamRadius?"#10b981":"#ef4444",borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700}}>
-              {dalamRadius?"✅ OK":"❌"}
-            </span>
-          )}
+          {jarak!==null&&<span style={{background:dalamRadius?"#10b981":"#ef4444",borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700}}>{dalamRadius?"✅ OK":"❌"}</span>}
         </div>
       </div>
 
       <div style={{padding:"0 16px",marginTop:-40,paddingBottom:100}} className="fade-in">
 
-        {/* Beranda */}
+        {/* Tab: Beranda */}
         {tab==="home" && (
           <>
+            {/* Stats */}
             <div className="mini4" style={{marginBottom:16}}>
               {[{l:"Hadir",v:hadir,c:"#10b981"},{l:"Izin",v:izin,c:"#f59e0b"},{l:"Sakit",v:sakit,c:"#3b82f6"},{l:"Nilai",v:pct+"%",c:pct>=75?"#10b981":"#ef4444"}].map((s,i)=>(
                 <div key={i} style={{background:"#fff",borderRadius:14,padding:"12px 6px",textAlign:"center",boxShadow:"0 2px 10px rgba(0,0,0,.08)"}}>
@@ -443,38 +376,66 @@ function MahasiswaDashboard({ user, token, onLogout }) {
             )}
 
             {/* Daftar Matkul */}
-            <div style={{fontWeight:700,fontSize:14,color:"#1e293b",marginBottom:10}}>📚 Mata Kuliah Hari Ini</div>
-            {courses.length===0 && <div className="card" style={{textAlign:"center",color:"#64748b",fontSize:14}}>Belum ada mata kuliah</div>}
+            <div style={{fontWeight:700,fontSize:14,color:"#1e293b",marginBottom:10}}>📚 Mata Kuliah</div>
+            {courses.length===0&&<div className="card" style={{textAlign:"center",color:"#64748b"}}>Belum ada mata kuliah</div>}
             {courses.map(c=>{
-              const today=new Date().toISOString().split("T")[0];
-              const sudahAbsen=riwayat.find(a=>a.matkul_id===c.id&&a.date===today);
+              const {sudahMasuk,sudahPulang}=getStatusHariIni(c.id);
               const jamOk=cekJamAbsen(c.time);
-              const bisa=!sudahAbsen&&jamOk.boleh&&dalamRadius;
+              const jam=parseJam(c.time);
+              const menitNow=new Date().getHours()*60+new Date().getMinutes();
+              const sedangBerlangsung=jam&&menitNow>=jam.mulai&&menitNow<=jam.selesai;
+
               return (
                 <div key={c.id} className="card">
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontWeight:700,color:"#1e293b",fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                      <div style={{fontSize:12,color:"#64748b",marginTop:2}}>{c.code} • {c.room}</div>
-                      <div style={{fontSize:12,color:"#64748b",marginTop:1,display:"flex",alignItems:"center",flexWrap:"wrap",gap:4}}>
-                        ⏰ {c.time}
-                        <JamBadge timeStr={c.time} />
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontWeight:700,color:"#1e293b",fontSize:15}}>{c.name}</div>
+                    <div style={{fontSize:12,color:"#64748b",marginTop:2}}>{c.code} • {c.room}</div>
+                    <div style={{fontSize:12,color:"#64748b",marginTop:1,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                      ⏰ {c.time}
+                      <span style={{background:sedangBerlangsung?"#d1fae5":"#fee2e2",color:sedangBerlangsung?"#065f46":"#991b1b",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>
+                        {sedangBerlangsung?"🟢 Berlangsung":"🔴 Di luar jam"}
+                      </span>
+                    </div>
+                    {!jamOk.boleh&&<div style={{fontSize:11,color:"#ef4444",marginTop:4}}>⚠️ {jamOk.pesan}</div>}
+                  </div>
+
+                  {/* Tombol Absen Masuk & Pulang */}
+                  <div style={{display:"flex",gap:8}}>
+                    {/* Absen Masuk */}
+                    {sudahMasuk ? (
+                      <div style={{flex:1,background:"#f0fdf4",borderRadius:10,padding:"8px 12px",textAlign:"center",border:"1.5px solid #10b981"}}>
+                        <div style={{fontSize:11,color:"#065f46",fontWeight:600}}>✅ Masuk</div>
+                        <div style={{fontSize:11,color:"#64748b"}}>{sudahMasuk.time}</div>
                       </div>
-                      {!jamOk.boleh && !sudahAbsen && (
-                        <div style={{fontSize:11,color:"#ef4444",marginTop:4}}>⚠️ {jamOk.pesan}</div>
-                      )}
-                    </div>
-                    <div style={{flexShrink:0}}>
-                      {sudahAbsen ? <Badge status="hadir" /> : (
-                        <button
-                          onClick={()=>setSelected(c)}
-                          disabled={!bisa}
-                          className="btn btn-primary"
-                          style={{padding:"8px 14px",fontSize:13,opacity:bisa?1:.4,cursor:bisa?"pointer":"not-allowed"}}>
-                          📸 Absen
-                        </button>
-                      )}
-                    </div>
+                    ) : (
+                      <button
+                        className="btn btn-success"
+                        style={{flex:1,padding:"10px 8px",fontSize:13,opacity:(jamOk.boleh&&dalamRadius)?1:.4}}
+                        disabled={!jamOk.boleh||!dalamRadius}
+                        onClick={()=>setModal({course:c,tipe:"masuk"})}>
+                        🟢 Absen Masuk
+                      </button>
+                    )}
+
+                    {/* Absen Pulang */}
+                    {sudahPulang ? (
+                      <div style={{flex:1,background:"#fff7ed",borderRadius:10,padding:"8px 12px",textAlign:"center",border:"1.5px solid #f59e0b"}}>
+                        <div style={{fontSize:11,color:"#92400e",fontWeight:600}}>🔴 Pulang</div>
+                        <div style={{fontSize:11,color:"#64748b"}}>{sudahPulang.time}</div>
+                      </div>
+                    ) : sudahMasuk ? (
+                      <button
+                        className="btn btn-warning"
+                        style={{flex:1,padding:"10px 8px",fontSize:13,opacity:(jamOk.boleh&&dalamRadius)?1:.4}}
+                        disabled={!jamOk.boleh||!dalamRadius}
+                        onClick={()=>setModal({course:c,tipe:"pulang"})}>
+                        🔴 Absen Pulang
+                      </button>
+                    ) : (
+                      <div style={{flex:1,background:"#f8faff",borderRadius:10,padding:"8px 12px",textAlign:"center",border:"1.5px solid #e2e8f0"}}>
+                        <div style={{fontSize:11,color:"#94a3b8"}}>Absen masuk dulu</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -482,10 +443,12 @@ function MahasiswaDashboard({ user, token, onLogout }) {
           </>
         )}
 
-        {/* Log Absensi */}
-        {tab==="history" && (
+        {/* Tab: Log Absensi */}
+        {tab==="log" && (
           <>
-            <div style={{fontWeight:700,fontSize:14,color:"#1e293b",marginBottom:10,marginTop:4}}>📋 Log Absensi</div>
+            <div style={{fontWeight:700,fontSize:14,color:"#1e293b",marginBottom:10,marginTop:4}}>📋 Log Absensi Lengkap</div>
+
+            {/* Rekap */}
             <div className="card" style={{marginBottom:14}}>
               <div style={{fontWeight:600,marginBottom:10,color:"#1e293b",fontSize:14}}>📊 Rekap Kehadiran</div>
               <div className="mini4" style={{marginBottom:12}}>
@@ -503,16 +466,38 @@ function MahasiswaDashboard({ user, token, onLogout }) {
               <div style={{background:"#f0f4ff",borderRadius:20,height:8,overflow:"hidden"}}>
                 <div style={{width:pct+"%",height:"100%",background:pct>=75?"#10b981":"#ef4444",borderRadius:20,transition:"width .5s"}} />
               </div>
-              {pct<75 && <div style={{fontSize:11,color:"#ef4444",marginTop:6}}>⚠️ Kehadiran di bawah 75%! Harap segera hadir.</div>}
+              {pct<75&&<div style={{fontSize:11,color:"#ef4444",marginTop:6}}>⚠️ Kehadiran di bawah 75%!</div>}
             </div>
-            {riwayat.length===0 && <div className="card" style={{textAlign:"center",color:"#64748b"}}>Belum ada riwayat absensi</div>}
+
+            {/* Log per hari */}
+            {riwayat.length===0&&<div className="card" style={{textAlign:"center",color:"#64748b"}}>Belum ada riwayat absensi</div>}
             {riwayat.map((a,i)=>(
               <div key={i} className="card" style={{padding:"14px 16px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
                     <div style={{fontWeight:600,color:"#1e293b",fontSize:14}}>{a.matkul_name}</div>
-                    <div style={{fontSize:12,color:"#64748b",marginTop:2}}>📅 {a.date} • 🕐 {a.time}</div>
-                    {a.latitude && <div style={{fontSize:11,color:"#10b981",marginTop:2}}>📍 Lokasi kampus terverifikasi</div>}
+                    <div style={{fontSize:12,color:"#64748b",marginTop:2}}>📅 {a.date}</div>
+                    <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap"}}>
+                      {/* Absen Masuk */}
+                      <div style={{background:"#f0fdf4",borderRadius:10,padding:"6px 12px",border:"1px solid #bbf7d0"}}>
+                        <div style={{fontSize:11,color:"#065f46",fontWeight:600}}>🟢 Masuk</div>
+                        <div style={{fontSize:12,color:"#1e293b",fontWeight:700}}>{a.time||"-"}</div>
+                        {a.latitude&&<div style={{fontSize:10,color:"#10b981"}}>📍 Terverifikasi</div>}
+                      </div>
+                      {/* Absen Pulang - tampilkan jika ada */}
+                      {a.pulang_time ? (
+                        <div style={{background:"#fff7ed",borderRadius:10,padding:"6px 12px",border:"1px solid #fed7aa"}}>
+                          <div style={{fontSize:11,color:"#92400e",fontWeight:600}}>🔴 Pulang</div>
+                          <div style={{fontSize:12,color:"#1e293b",fontWeight:700}}>{a.pulang_time}</div>
+                          {a.pulang_latitude&&<div style={{fontSize:10,color:"#f59e0b"}}>📍 Terverifikasi</div>}
+                        </div>
+                      ) : (
+                        <div style={{background:"#f8faff",borderRadius:10,padding:"6px 12px",border:"1px solid #e2e8f0"}}>
+                          <div style={{fontSize:11,color:"#94a3b8",fontWeight:600}}>🔴 Pulang</div>
+                          <div style={{fontSize:12,color:"#cbd5e1"}}>Belum absen</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <Badge status={a.status} />
                 </div>
@@ -525,14 +510,38 @@ function MahasiswaDashboard({ user, token, onLogout }) {
       {/* Bottom Nav */}
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #e2e8f0",padding:"8px 16px 16px",zIndex:50}}>
         <div className="nav-tabs">
-          {[{k:"home",l:"🏠 Beranda"},{k:"history",l:"📋 Log Absensi"}].map(t=>(
+          {[{k:"home",l:"🏠 Beranda"},{k:"log",l:"📋 Log Absensi"}].map(t=>(
             <button key={t.k} className={`nav-tab ${tab===t.k?"active":""}`} onClick={()=>setTab(t.k)}>{t.l}</button>
           ))}
         </div>
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
-      {selected && <AbsenModal course={selected} token={token} onClose={()=>setSelected(null)} onSuccess={handleSuccess} />}
+      {toast.msg && (
+        <div className="toast" style={{background:toast.type==="success"?"#10b981":"#ef4444"}}>{toast.msg}</div>
+      )}
+
+      {modal && lokasi && (
+        <AbsenModal
+          course={modal.course}
+          tipe={modal.tipe}
+          token={token}
+          lokasi={lokasi}
+          jarak={jarak}
+          onClose={()=>setModal(null)}
+          onSuccess={()=>{refreshRiwayat();showToast(`✅ ${modal.tipe==="masuk"?"Absen masuk":"Absen pulang"} berhasil!`);}}
+        />
+      )}
+
+      {modal && !lokasi && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
+          <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:320,textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:12}}>📍</div>
+            <div style={{fontWeight:700,color:"#991b1b"}}>GPS Tidak Aktif!</div>
+            <div style={{fontSize:13,color:"#64748b",marginTop:8}}>Aktifkan GPS di HP kamu lalu coba lagi.</div>
+            <button className="btn btn-secondary" onClick={()=>setModal(null)} style={{marginTop:16,width:"100%"}}>Tutup</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -595,11 +604,11 @@ function AdminDashboard({ user, token, onLogout }) {
             </div>
             <div className="card">
               <div style={{fontWeight:700,marginBottom:10,color:"#1e293b",fontSize:15}}>⚙️ Pengaturan Absensi</div>
-              <div style={{fontSize:13,color:"#64748b",lineHeight:1.8}}>
+              <div style={{fontSize:13,color:"#64748b",lineHeight:2}}>
                 🏫 Kampus: <b>{KAMPUS.nama}</b><br/>
-                📍 Koordinat: {KAMPUS.lat}, {KAMPUS.lng}<br/>
                 📏 Radius absen: <b style={{color:"#10b981"}}>{RADIUS_METER} meter</b><br/>
-                ⏰ Jam absen: <b style={{color:"#1d4ed8"}}>Sesuai jam mata kuliah masing-masing</b>
+                ⏰ Jam absen: <b style={{color:"#1d4ed8"}}>Sesuai jam mata kuliah</b><br/>
+                📸 Fitur: <b>Absen Masuk + Absen Pulang dengan Selfie</b>
               </div>
             </div>
           </>
@@ -609,20 +618,19 @@ function AdminDashboard({ user, token, onLogout }) {
           <>
             <div className="stat-card" style={{marginBottom:20}}>
               <div style={{fontWeight:700,marginBottom:14,color:"#1e293b",fontSize:15}}>➕ Tambah Mata Kuliah</div>
-              <div style={{fontSize:12,color:"#64748b",marginBottom:12,background:"#f0f9ff",padding:"8px 12px",borderRadius:8}}>
-                💡 Format jam: <b>08:00-10:00</b> (mahasiswa hanya bisa absen di antara jam ini)
+              <div style={{fontSize:12,color:"#0ea5e9",marginBottom:12,background:"#f0f9ff",padding:"8px 12px",borderRadius:8}}>
+                💡 Format jam: <b>08:00-12:00</b>
               </div>
               <div className="form-grid">
-                {[{k:"name",l:"Nama Matkul",p:"Pemrograman Web"},{k:"code",l:"Kode",p:"TI301"},{k:"day",l:"Hari",p:"Senin"},{k:"time",l:"Jam (08:00-10:00)",p:"08:00-10:00"},{k:"room",l:"Ruangan",p:"Lab A"}].map(f=>(
+                {[{k:"name",l:"Nama Matkul",p:"Pemrograman Web"},{k:"code",l:"Kode",p:"TI301"},{k:"day",l:"Hari",p:"Senin"},{k:"time",l:"Jam",p:"08:00-12:00"},{k:"room",l:"Ruangan",p:"Lab A"}].map(f=>(
                   <div key={f.k}>
                     <label style={{fontSize:12,fontWeight:600,color:"#64748b",display:"block",marginBottom:4}}>{f.l}</label>
                     <input className="input" value={nm[f.k]} onChange={e=>setNm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p} />
                   </div>
                 ))}
               </div>
-              <button className="btn btn-primary" onClick={tambah} disabled={loadingAdd} style={{marginTop:16}}>{loadingAdd?"Menyimpan...":"✓ Tambah Matkul"}</button>
+              <button className="btn btn-primary" onClick={tambah} disabled={loadingAdd} style={{marginTop:16}}>{loadingAdd?"Menyimpan...":"✓ Tambah"}</button>
             </div>
-            {courses.length===0 && <div className="card" style={{textAlign:"center",color:"#64748b"}}>Belum ada mata kuliah</div>}
             {courses.map(c=>(
               <div key={c.id} className="card">
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -630,10 +638,7 @@ function AdminDashboard({ user, token, onLogout }) {
                     <div style={{fontWeight:700,color:"#1e293b"}}>{c.name}</div>
                     <div style={{fontSize:13,color:"#64748b",marginTop:4}}>{c.code} • {c.day} • {c.room}</div>
                   </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{fontWeight:700,color:"#1d4ed8",fontSize:14}}>⏰ {c.time}</div>
-                    <JamBadge timeStr={c.time} />
-                  </div>
+                  <div style={{fontWeight:700,color:"#1d4ed8"}}>⏰ {c.time}</div>
                 </div>
               </div>
             ))}
@@ -642,7 +647,6 @@ function AdminDashboard({ user, token, onLogout }) {
 
         {tab==="mahasiswa" && (
           <>
-            {laporan.length===0 && <div className="card" style={{textAlign:"center",color:"#64748b"}}>Belum ada data</div>}
             {laporan.map(m=>(
               <div key={m.id} className="card">
                 <div style={{display:"flex",alignItems:"center",gap:14}}>
@@ -655,7 +659,7 @@ function AdminDashboard({ user, token, onLogout }) {
                     </div>
                     <div style={{fontSize:11,color:"#64748b",marginTop:3}}>Kehadiran: {m.persentase||0}%</div>
                   </div>
-                  <div style={{fontWeight:800,fontSize:20,color:m.persentase>=75?"#10b981":"#ef4444",flexShrink:0}}>{m.persentase||0}%</div>
+                  <div style={{fontWeight:800,fontSize:20,color:m.persentase>=75?"#10b981":"#ef4444"}}>{m.persentase||0}%</div>
                 </div>
               </div>
             ))}
@@ -665,17 +669,22 @@ function AdminDashboard({ user, token, onLogout }) {
         {tab==="laporan" && (
           <div className="table-wrap">
             <table>
-              <thead><tr>{["Mahasiswa","NIM","Mata Kuliah","Tanggal","Waktu","Lokasi","Status"].map(h=><th key={h}>{h}</th>)}</tr></thead>
+              <thead>
+                <tr>
+                  {["Mahasiswa","NIM","Mata Kuliah","Tanggal","Masuk","Pulang","Lokasi","Status"].map(h=><th key={h}>{h}</th>)}
+                </tr>
+              </thead>
               <tbody>
-                {absensi.length===0 && <tr><td colSpan={7} style={{textAlign:"center",color:"#64748b",padding:24}}>Belum ada data</td></tr>}
+                {absensi.length===0&&<tr><td colSpan={8} style={{textAlign:"center",color:"#64748b",padding:24}}>Belum ada data</td></tr>}
                 {absensi.map((a,i)=>(
                   <tr key={i}>
                     <td style={{fontWeight:600}}>{a.mahasiswa_name}</td>
                     <td style={{color:"#64748b"}}>{a.nim}</td>
                     <td style={{color:"#64748b"}}>{a.matkul_name}</td>
                     <td style={{color:"#64748b"}}>{a.date}</td>
-                    <td style={{color:"#64748b"}}>{a.time}</td>
-                    <td style={{color:"#64748b",fontSize:12}}>{a.latitude?`📍 ${parseFloat(a.latitude).toFixed(4)}, ${parseFloat(a.longitude).toFixed(4)}`:"-"}</td>
+                    <td><span style={{color:"#065f46",fontWeight:600}}>🟢 {a.time||"-"}</span></td>
+                    <td><span style={{color:"#92400e",fontWeight:600}}>🔴 {a.pulang_time||"-"}</span></td>
+                    <td style={{color:"#64748b",fontSize:12}}>{a.latitude?`📍 ${parseFloat(a.latitude).toFixed(4)}`:"-"}</td>
                     <td><Badge status={a.status} /></td>
                   </tr>
                 ))}
