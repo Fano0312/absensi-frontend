@@ -29,9 +29,9 @@ function cekJamAbsen(timeStr) {
   const menit = now.getHours()*60+now.getMinutes();
   if (menit < jam.mulai) {
     const s = jam.mulai-menit;
-    return { boleh: false, pesan: `Belum waktunya! Kuliah mulai jam ${timeStr.split("-")[0].trim()}. ${Math.floor(s/60)>0?Math.floor(s/60)+"j ":""}${s%60}m lagi.` };
+    return { boleh: false, pesan: `Belum waktunya! Mulai jam ${timeStr.split("-")[0].trim()}. ${Math.floor(s/60)>0?Math.floor(s/60)+"j ":""}${s%60}m lagi.` };
   }
-  if (menit > jam.selesai) return { boleh: false, pesan: `Waktu absen sudah habis! Kuliah berakhir jam ${timeStr.split("-").pop().trim()}.` };
+  if (menit > jam.selesai) return { boleh: false, pesan: `Waktu absen habis! Berakhir jam ${timeStr.split("-").pop().trim()}.` };
   return { boleh: true, pesan: "" };
 }
 
@@ -51,45 +51,26 @@ async function exportPDF(data, courses) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const now = new Date();
   const tgl = now.toLocaleDateString("id-ID", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
-  doc.setFillColor(29, 78, 216);
-  doc.rect(0, 0, 297, 32, "F");
+  doc.setFillColor(29,78,216); doc.rect(0,0,297,32,"F");
   doc.setTextColor(255,255,255);
   doc.setFontSize(18); doc.setFont("helvetica","bold");
   doc.text("LAPORAN ABSENSI MAHASISWA", 148, 13, { align:"center" });
   doc.setFontSize(11); doc.setFont("helvetica","normal");
   doc.text("Politeknik eLBajo Commodus", 148, 21, { align:"center" });
   doc.text(`Dicetak: ${tgl}`, 148, 28, { align:"center" });
-  doc.setTextColor(30,41,59);
-  doc.setFontSize(11); doc.setFont("helvetica","bold");
-  doc.text("RINGKASAN", 14, 42);
-  doc.setFont("helvetica","normal"); doc.setFontSize(10);
-  doc.text(`Total Mahasiswa: ${[...new Set(data.map(d=>d.nim))].length}`, 14, 49);
-  doc.text(`Total Absensi: ${data.length}`, 80, 49);
-  doc.text(`Mata Kuliah: ${courses.length}`, 150, 49);
-  doc.text(`Hadir: ${data.filter(d=>d.status==="hadir").length}`, 14, 55);
-  doc.text(`Izin: ${data.filter(d=>d.status==="izin").length}`, 80, 55);
-  doc.text(`Sakit: ${data.filter(d=>d.status==="sakit").length}`, 150, 55);
+  doc.setTextColor(30,41,59); doc.setFontSize(10);
+  doc.text(`Total Mahasiswa: ${[...new Set(data.map(d=>d.nim))].length}  |  Total Absensi: ${data.length}  |  Hadir: ${data.filter(d=>d.status==="hadir").length}  |  Izin: ${data.filter(d=>d.status==="izin").length}  |  Sakit: ${data.filter(d=>d.status==="sakit").length}`, 14, 44);
   doc.autoTable({
-    startY: 62,
+    startY: 50,
     head: [["No","Nama Mahasiswa","NIM","Mata Kuliah","Tanggal","Jam Masuk","Jam Pulang","Lokasi","Status"]],
-    body: data.map((a,i) => [
-      i+1, a.mahasiswa_name||"-", a.nim||"-", a.matkul_name||"-",
-      a.date ? new Date(a.date).toLocaleDateString("id-ID") : "-",
-      a.time||"-", a.pulang_time||"-",
-      a.latitude ? `${parseFloat(a.latitude).toFixed(4)}, ${parseFloat(a.longitude).toFixed(4)}` : "Tidak tersedia",
-      (a.status||"alpha").toUpperCase(),
-    ]),
+    body: data.map((a,i) => [i+1, a.mahasiswa_name||"-", a.nim||"-", a.matkul_name||"-", a.date?new Date(a.date).toLocaleDateString("id-ID"):"-", a.time||"-", a.pulang_time||"-", a.latitude?`${parseFloat(a.latitude).toFixed(4)}, ${parseFloat(a.longitude).toFixed(4)}`:"Tidak tersedia", (a.status||"alpha").toUpperCase()]),
     styles: { fontSize: 9, cellPadding: 3 },
     headStyles: { fillColor: [29,78,216], textColor: 255, fontStyle: "bold", halign:"center" },
     alternateRowStyles: { fillColor: [248,250,255] },
     columnStyles: { 0:{halign:"center",cellWidth:10}, 4:{halign:"center"}, 5:{halign:"center"}, 6:{halign:"center"}, 8:{halign:"center",fontStyle:"bold"} },
   });
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i=1;i<=pageCount;i++) {
-    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(100,116,139);
-    doc.text(`Halaman ${i} dari ${pageCount}`, 148, 205, { align:"center" });
-    doc.text("Dokumen dicetak otomatis oleh AbsensiKu - Politeknik eLBajo Commodus", 148, 209, { align:"center" });
-  }
+  const pc = doc.internal.getNumberOfPages();
+  for (let i=1;i<=pc;i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(100,116,139); doc.text(`Halaman ${i} dari ${pc}  |  AbsensiKu - Politeknik eLBajo Commodus`, 148, 208, { align:"center" }); }
   doc.save(`Laporan_Absensi_${now.toISOString().split("T")[0]}.pdf`);
 }
 
@@ -102,120 +83,16 @@ async function exportExcel(data) {
     [`Dicetak: ${now.toLocaleDateString("id-ID",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}`],
     [],
     ["No","Nama Mahasiswa","NIM","Mata Kuliah","Tanggal","Jam Masuk","Jam Pulang","Latitude","Longitude","Status"],
-    ...data.map((a,i) => [
-      i+1, a.mahasiswa_name||"-", a.nim||"-", a.matkul_name||"-",
-      a.date ? new Date(a.date).toLocaleDateString("id-ID") : "-",
-      a.time||"-", a.pulang_time||"-",
-      a.latitude ? parseFloat(a.latitude).toFixed(6) : "-",
-      a.longitude ? parseFloat(a.longitude).toFixed(6) : "-",
-      (a.status||"alpha").toUpperCase(),
-    ]),
-    [], ["RINGKASAN"],
-    ["Total Absensi", data.length],
-    ["Hadir", data.filter(d=>d.status==="hadir").length],
-    ["Izin", data.filter(d=>d.status==="izin").length],
-    ["Sakit", data.filter(d=>d.status==="sakit").length],
-    ["Alpha", data.filter(d=>!d.status||d.status==="alpha").length],
+    ...data.map((a,i) => [i+1, a.mahasiswa_name||"-", a.nim||"-", a.matkul_name||"-", a.date?new Date(a.date).toLocaleDateString("id-ID"):"-", a.time||"-", a.pulang_time||"-", a.latitude?parseFloat(a.latitude).toFixed(6):"-", a.longitude?parseFloat(a.longitude).toFixed(6):"-", (a.status||"alpha").toUpperCase()]),
+    [], ["RINGKASAN"], ["Total",data.length], ["Hadir",data.filter(d=>d.status==="hadir").length], ["Izin",data.filter(d=>d.status==="izin").length], ["Sakit",data.filter(d=>d.status==="sakit").length], ["Alpha",data.filter(d=>!d.status||d.status==="alpha").length],
   ];
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{wch:5},{wch:25},{wch:15},{wch:25},{wch:15},{wch:12},{wch:12},{wch:15},{wch:15},{wch:10}];
-  ws["!merges"] = [{ s:{r:0,c:0}, e:{r:0,c:9} }, { s:{r:1,c:0}, e:{r:1,c:9} }];
+  ws["!merges"] = [{s:{r:0,c:0},e:{r:0,c:9}},{s:{r:1,c:0},e:{r:1,c:9}}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Laporan Absensi");
   XLSX.writeFile(wb, `Laporan_Absensi_${now.toISOString().split("T")[0]}.xlsx`);
 }
-
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Outfit',sans-serif;background:#f0f4ff;overflow-x:hidden;}
-
-  /* ── ADMIN LAYOUT ── */
-  .admin-wrap{display:flex;min-height:100vh;}
-  .sidebar{width:220px;background:linear-gradient(160deg,#1e3a8a,#1d4ed8);padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:fixed;left:0;top:0;bottom:0;z-index:200;transition:transform .3s;overflow-y:auto;}
-  .admin-main{margin-left:220px;padding:24px;min-height:100vh;width:calc(100% - 220px);}
-  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:199;}
-
-  /* ── STATS ── */
-  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
-  .stat-card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06);border:1px solid #e2e8f0;}
-
-  /* ── TABLE ── */
-  .table-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.06);-webkit-overflow-scrolling:touch;}
-  table{width:100%;border-collapse:collapse;background:#fff;min-width:750px;}
-  th{padding:12px 10px;text-align:left;font-size:11px;font-weight:700;background:#1d4ed8;color:#fff;white-space:nowrap;}
-  td{padding:10px 10px;font-size:11px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
-  tr:last-child td{border-bottom:none;}
-  tr:nth-child(even) td{background:#f8faff;}
-  tr:hover td{background:#eff6ff;}
-
-  /* ── FORMS ── */
-  .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
-  .card{background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 1px 8px rgba(0,0,0,.07);border:1px solid #e2e8f0;margin-bottom:12px;}
-  .input{width:100%;padding:10px 13px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:13px;font-family:'Outfit',sans-serif;outline:none;transition:border .2s;}
-  .input:focus{border-color:#1d4ed8;}
-
-  /* ── BUTTONS ── */
-  .btn{padding:9px 16px;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:'Outfit',sans-serif;transition:opacity .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
-  .btn:hover{opacity:.85;}
-  .btn:disabled{opacity:.4;cursor:not-allowed;}
-  .btn-primary{background:linear-gradient(135deg,#1d4ed8,#0ea5e9);color:#fff;}
-  .btn-success{background:linear-gradient(135deg,#059669,#10b981);color:#fff;}
-  .btn-warning{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;}
-  .btn-danger{background:#ef4444;color:#fff;}
-  .btn-pdf{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;}
-  .btn-excel{background:linear-gradient(135deg,#15803d,#22c55e);color:#fff;}
-  .btn-secondary{background:#f0f4ff;color:#64748b;}
-  .btn-full{width:100%;padding:13px;justify-content:center;}
-  .btn-sm{padding:5px 10px;font-size:11px;border-radius:8px;}
-
-  /* ── SIDEBAR ITEMS ── */
-  .si{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:none;background:transparent;color:#fff;cursor:pointer;font-family:'Outfit',sans-serif;font-size:13px;width:100%;text-align:left;transition:background .2s;}
-  .si.active{background:rgba(255,255,255,.2);font-weight:700;}
-  .si.logout{color:rgba(255,255,255,.6);}
-
-  /* ── MAHASISWA BOTTOM NAV ── */
-  .nav-tabs{display:flex;background:#f0f4ff;border-radius:12px;padding:4px;gap:4px;}
-  .nav-tab{flex:1;padding:10px 0;background:transparent;border:none;cursor:pointer;border-radius:10px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:500;color:#64748b;transition:.2s;}
-  .nav-tab.active{background:#fff;color:#1d4ed8;font-weight:700;}
-
-  /* ── MISC ── */
-  .mini4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-  .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);color:#fff;padding:11px 24px;border-radius:30px;font-weight:700;font-size:13px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.2);white-space:nowrap;}
-  .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:3000;padding:16px;}
-  .confirm-box{background:#fff;border-radius:20px;padding:28px;max-width:340px;width:100%;text-align:center;}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-  .fade-in{animation:fadeIn .3s ease;}
-  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-  .pulse{animation:pulse 1.5s infinite;}
-
-  /* ── ADMIN BOTTOM NAV (mobile) ── */
-  .admin-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #e2e8f0;z-index:300;padding:6px 0 10px;}
-  .admin-bottom-nav-inner{display:flex;justify-content:space-around;}
-  .abn-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px;border:none;background:transparent;cursor:pointer;font-family:'Outfit',sans-serif;font-size:10px;color:#64748b;border-radius:10px;transition:.2s;min-width:60px;}
-  .abn-item.active{color:#1d4ed8;}
-  .abn-item.active .abn-icon{background:#eff6ff;}
-  .abn-icon{font-size:20px;padding:4px 8px;border-radius:10px;}
-
-  /* ── RESPONSIVE ── */
-  @media(max-width:768px){
-    /* Admin: sembunyikan sidebar, tampilkan bottom nav */
-    .sidebar{transform:translateX(-100%);}
-    .sidebar.open{transform:translateX(0);}
-    .overlay.open{display:block;}
-    .admin-main{margin-left:0;padding:14px;padding-bottom:80px;width:100%;}
-    .admin-bottom-nav{display:block;}
-    .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
-    .form-grid{grid-template-columns:1fr;}
-    /* Export tombol stack */
-    .export-bar{flex-direction:column;align-items:stretch!important;}
-    .export-bar .btn{justify-content:center;}
-  }
-  @media(max-width:480px){
-    .stats-grid{grid-template-columns:1fr;}
-    .admin-main{padding:10px;padding-bottom:80px;}
-  }
-`;
 
 const api = {
   post: async (p,b,t)=>(await fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json",...(t&&{Authorization:`Bearer ${t}`})},body:JSON.stringify(b)})).json(),
@@ -231,23 +108,30 @@ function Badge({ status }) {
 
 function ConfirmHapus({ data, onConfirm, onCancel }) {
   return (
-    <div className="confirm-overlay">
-      <div className="confirm-box fade-in">
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:16}}>
+      <div style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
         <div style={{fontSize:48,marginBottom:12}}>🗑️</div>
         <div style={{fontWeight:800,fontSize:17,color:"#1e293b",marginBottom:8}}>Hapus Data Absensi?</div>
         <div style={{fontSize:13,color:"#64748b",marginBottom:20,lineHeight:1.6}}>
-          Hapus absensi <b>{data.mahasiswa_name}</b> — <b>{data.matkul_name}</b><br/>
-          Tanggal: <b>{data.date ? new Date(data.date).toLocaleDateString("id-ID") : data.date}</b><br/>
-          <span style={{color:"#ef4444",fontWeight:600}}>Data tidak bisa dikembalikan!</span>
+          <b>{data.mahasiswa_name}</b> — <b>{data.matkul_name}</b><br/>
+          Tanggal: <b>{data.date?new Date(data.date).toLocaleDateString("id-ID"):"-"}</b><br/>
+          <span style={{color:"#ef4444",fontWeight:600}}>Tidak bisa dikembalikan!</span>
         </div>
         <div style={{display:"flex",gap:10}}>
-          <button className="btn btn-secondary" onClick={onCancel} style={{flex:1,justifyContent:"center"}}>Batal</button>
-          <button className="btn btn-danger" onClick={onConfirm} style={{flex:1,justifyContent:"center"}}>Ya, Hapus</button>
+          <button onClick={onCancel} style={{flex:1,padding:"11px",border:"none",borderRadius:10,background:"#f0f4ff",color:"#64748b",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Batal</button>
+          <button onClick={onConfirm} style={{flex:1,padding:"11px",border:"none",borderRadius:10,background:"#ef4444",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Ya, Hapus</button>
         </div>
       </div>
     </div>
   );
 }
+
+// ── Shared styles ────────────────────────────────────────────────────────────
+const G = {
+  card: { background:"#fff", borderRadius:14, padding:"14px 16px", boxShadow:"0 1px 8px rgba(0,0,0,.07)", border:"1px solid #e2e8f0", marginBottom:10 },
+  input: { width:"100%", padding:"10px 13px", borderRadius:10, border:"1.5px solid #e2e8f0", fontSize:13, fontFamily:"Outfit,sans-serif", outline:"none" },
+  btn: (bg,color="white") => ({ padding:"10px 18px", border:"none", borderRadius:10, fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Outfit,sans-serif", background:bg, color, display:"inline-flex", alignItems:"center", gap:5, whiteSpace:"nowrap" }),
+};
 
 function LoginPage({ onLogin }) {
   const [nim,setNim]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [loading,setLoading]=useState(false);
@@ -262,9 +146,9 @@ function LoginPage({ onLogin }) {
     setLoading(false);
   };
   return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#1e3a8a,#0ea5e9)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <style>{css}</style>
-      <div style={{background:"#fff",borderRadius:24,padding:"36px 28px",width:"100%",maxWidth:400,boxShadow:"0 24px 64px rgba(0,0,0,.2)"}} className="fade-in">
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#1e3a8a,#0ea5e9)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,fontFamily:"Outfit,sans-serif"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Outfit',sans-serif;}`}</style>
+      <div style={{background:"#fff",borderRadius:24,padding:"36px 28px",width:"100%",maxWidth:400,boxShadow:"0 24px 64px rgba(0,0,0,.2)"}}>
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{width:64,height:64,background:"linear-gradient(135deg,#1d4ed8,#0ea5e9)",borderRadius:20,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:14}}><span style={{fontSize:28}}>📚</span></div>
           <div style={{fontSize:26,fontWeight:900,color:"#1e293b"}}>AbsensiKu</div>
@@ -273,21 +157,20 @@ function LoginPage({ onLogin }) {
         {err&&<div style={{background:"#fee2e2",color:"#991b1b",padding:"10px 16px",borderRadius:10,fontSize:13,marginBottom:14}}>⚠️ {err}</div>}
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,fontWeight:600,color:"#1e293b",display:"block",marginBottom:6}}>NIM / Username</label>
-          <input className="input" value={nim} onChange={e=>setNim(e.target.value)} placeholder="Masukkan NIM..." />
+          <input style={G.input} value={nim} onChange={e=>setNim(e.target.value)} placeholder="Masukkan NIM..." />
         </div>
         <div style={{marginBottom:22}}>
           <label style={{fontSize:13,fontWeight:600,color:"#1e293b",display:"block",marginBottom:6}}>Password</label>
-          <input className="input" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="Masukkan password..." />
+          <input style={G.input} type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="Masukkan password..." />
         </div>
-        <button className="btn btn-primary btn-full" onClick={login} disabled={loading}>{loading?"Memverifikasi...":"Masuk →"}</button>
+        <button style={{...G.btn("linear-gradient(135deg,#1d4ed8,#0ea5e9)"),width:"100%",justifyContent:"center",padding:14,fontSize:15,opacity:loading?.6:1}} onClick={login} disabled={loading}>{loading?"Memverifikasi...":"Masuk →"}</button>
       </div>
     </div>
   );
 }
 
 function KameraModal({ onPhoto, onClose }) {
-  const videoRef=useRef(null); const canvasRef=useRef(null);
-  const [stream,setStream]=useState(null);
+  const videoRef=useRef(null); const canvasRef=useRef(null); const [stream,setStream]=useState(null);
   useEffect(()=>{
     navigator.mediaDevices?.getUserMedia({video:{facingMode:"user"}}).then(s=>{setStream(s);if(videoRef.current)videoRef.current.srcObject=s;}).catch(()=>{});
     return()=>stream?.getTracks().forEach(t=>t.stop());
@@ -299,79 +182,70 @@ function KameraModal({ onPhoto, onClose }) {
     c.toBlob(blob=>{stream?.getTracks().forEach(t=>t.stop());onPhoto(c.toDataURL("image/jpeg"),blob);},"image/jpeg");
   };
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.88)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.9)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16,fontFamily:"Outfit,sans-serif"}}>
       <div style={{background:"#000",borderRadius:18,overflow:"hidden",width:"100%",maxWidth:380,marginBottom:14}}>
         <video ref={videoRef} autoPlay playsInline style={{width:"100%",display:"block"}} />
       </div>
       <canvas ref={canvasRef} style={{display:"none"}} />
       <div style={{display:"flex",gap:12}}>
-        <button className="btn btn-secondary" onClick={onClose}>Batal</button>
-        <button className="btn btn-primary" onClick={ambil}>📸 Ambil Foto</button>
+        <button style={G.btn("#f0f4ff","#64748b")} onClick={onClose}>Batal</button>
+        <button style={G.btn("linear-gradient(135deg,#1d4ed8,#0ea5e9)")} onClick={ambil}>📸 Ambil Foto</button>
       </div>
     </div>
   );
 }
 
 function AbsenModal({ course, tipe, token, lokasi, jarak, onClose, onSuccess }) {
-  const [step,setStep]=useState("foto");
-  const [photo,setPhoto]=useState(null); const [blob,setBlob]=useState(null);
-  const [pesanError,setPesanError]=useState("");
+  const [step,setStep]=useState("foto"); const [photo,setPhoto]=useState(null); const [blob,setBlob]=useState(null); const [err,setErr]=useState("");
   const warna=tipe==="masuk"?"#059669":"#d97706";
   const label=tipe==="masuk"?"Absen Masuk":"Absen Pulang";
   const handlePhoto=(d,b)=>{setPhoto(d);setBlob(b);setStep("confirm");};
   const submit=async()=>{
     setStep("loading");
     const cek=cekJamAbsen(course.time);
-    if (!cek.boleh){setPesanError("⏰ "+cek.pesan);setStep("error");return;}
+    if (!cek.boleh){setErr("⏰ "+cek.pesan);setStep("error");return;}
     const f=new FormData();
     f.append("matkul_id",course.id); f.append("tipe",tipe);
     if (lokasi){f.append("latitude",lokasi.lat);f.append("longitude",lokasi.lng);}
     if (blob) f.append("foto",blob,"selfie.jpg");
     try {
       const r=await api.postForm("/absensi/checkin",f,token);
-      if (r.message==="Absensi berhasil!"||r.message?.includes("berhasil")){setStep("success");setTimeout(()=>{onSuccess();onClose();},1800);}
-      else{setPesanError(r.message||"Gagal");setStep("error");}
-    } catch{setPesanError("Tidak bisa konek!");setStep("error");}
+      if (r.message?.includes("berhasil")||r.message==="Absensi berhasil!"){setStep("success");setTimeout(()=>{onSuccess();onClose();},1800);}
+      else{setErr(r.message||"Gagal");setStep("error");}
+    } catch{setErr("Tidak bisa konek!");setStep("error");}
   };
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:1000}}>
-      <div style={{background:"#fff",borderRadius:"24px 24px 0 0",padding:22,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto"}} className="fade-in">
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:1000,fontFamily:"Outfit,sans-serif"}}>
+      <div style={{background:"#fff",borderRadius:"24px 24px 0 0",padding:22,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <div>
-            <div style={{fontWeight:700,fontSize:15,color:"#1e293b"}}>{tipe==="masuk"?"🟢":"🔴"} {label}</div>
-            <div style={{fontSize:12,color:"#64748b"}}>{course.name} • {course.time}</div>
-          </div>
+          <div><div style={{fontWeight:700,fontSize:15,color:"#1e293b"}}>{tipe==="masuk"?"🟢":"🔴"} {label}</div><div style={{fontSize:12,color:"#64748b"}}>{course.name} • {course.time}</div></div>
           <button onClick={onClose} style={{border:"none",background:"#f0f4ff",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:18}}>✕</button>
         </div>
         <div style={{background:"#f0fdf4",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:13,color:"#065f46",fontWeight:600}}>✅ {Math.round(jarak)}m dari kampus</div>
         {step==="foto"&&<KameraModal onPhoto={handlePhoto} onClose={onClose} />}
-        {step==="confirm"&&(
-          <>
-            <img src={photo} style={{width:"100%",borderRadius:14,marginBottom:12}} alt="selfie" />
-            <div style={{background:"#f8faff",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#64748b"}}>
-              {tipe==="masuk"?"🟢":"🔴"} {label} • 🕐 {new Date().toLocaleTimeString("id-ID")} • 📍 {Math.round(jarak)}m
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button className="btn btn-secondary" onClick={()=>setStep("foto")} style={{flex:1,justifyContent:"center"}}>📷 Ulangi</button>
-              <button className="btn" onClick={submit} style={{flex:2,background:warna,color:"#fff",justifyContent:"center"}}>✓ Konfirmasi</button>
-            </div>
-          </>
-        )}
-        {step==="loading"&&<div style={{textAlign:"center",padding:28}}><div style={{fontSize:44,marginBottom:10}} className="pulse">⏳</div><div style={{fontWeight:600}}>Menyimpan...</div></div>}
+        {step==="confirm"&&(<>
+          <img src={photo} style={{width:"100%",borderRadius:14,marginBottom:12}} alt="selfie" />
+          <div style={{background:"#f8faff",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#64748b"}}>
+            {tipe==="masuk"?"🟢":"🔴"} {label} • 🕐 {new Date().toLocaleTimeString("id-ID")} • 📍 {Math.round(jarak)}m
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button style={{...G.btn("#f0f4ff","#64748b"),flex:1,justifyContent:"center"}} onClick={()=>setStep("foto")}>📷 Ulangi</button>
+            <button style={{...G.btn(warna),flex:2,justifyContent:"center"}} onClick={submit}>✓ Konfirmasi</button>
+          </div>
+        </>)}
+        {step==="loading"&&<div style={{textAlign:"center",padding:28}}><div style={{fontSize:44,marginBottom:10,animation:"pulse 1.5s infinite"}}>⏳</div><div style={{fontWeight:600}}>Menyimpan...</div></div>}
         {step==="success"&&<div style={{textAlign:"center",padding:24}}><div style={{fontSize:64,marginBottom:12}}>{tipe==="masuk"?"✅":"👋"}</div><div style={{fontWeight:800,fontSize:20,color:"#10b981"}}>{label} Berhasil!</div></div>}
-        {step==="error"&&<div style={{textAlign:"center",padding:22}}><div style={{fontSize:44,marginBottom:10}}>❌</div><div style={{fontWeight:700,color:"#991b1b",fontSize:14}}>{pesanError}</div><button className="btn btn-secondary" onClick={onClose} style={{marginTop:14,width:"100%",justifyContent:"center"}}>Tutup</button></div>}
+        {step==="error"&&<div style={{textAlign:"center",padding:22}}><div style={{fontSize:44,marginBottom:10}}>❌</div><div style={{fontWeight:700,color:"#991b1b",fontSize:14}}>{err}</div><button style={{...G.btn("#f0f4ff","#64748b"),marginTop:14,width:"100%",justifyContent:"center"}} onClick={onClose}>Tutup</button></div>}
       </div>
     </div>
   );
 }
 
-// ── Dashboard Mahasiswa ──────────────────────────────────────────────────────
+// ── Mahasiswa Dashboard ──────────────────────────────────────────────────────
 function MahasiswaDashboard({ user, token, onLogout }) {
-  const [tab,setTab]=useState("home");
-  const [courses,setCourses]=useState([]); const [riwayat,setRiwayat]=useState([]);
+  const [tab,setTab]=useState("home"); const [courses,setCourses]=useState([]); const [riwayat,setRiwayat]=useState([]);
   const [modal,setModal]=useState(null); const [toast,setToast]=useState({msg:"",type:"success"});
-  const [lokasi,setLokasi]=useState(null); const [jarak,setJarak]=useState(null);
-  const [jam,setJam]=useState(new Date());
+  const [lokasi,setLokasi]=useState(null); const [jarak,setJarak]=useState(null); const [jam,setJam]=useState(new Date());
 
   useEffect(()=>{
     api.get("/matkul",token).then(d=>setCourses(Array.isArray(d)?d:[]));
@@ -396,8 +270,10 @@ function MahasiswaDashboard({ user, token, onLogout }) {
   };
 
   return (
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#f0f4ff"}}>
-      <style>{css}</style>
+    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"#f0f4ff",fontFamily:"Outfit,sans-serif",position:"relative"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Outfit',sans-serif;background:#f0f4ff;}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}`}</style>
+
+      {/* Header */}
       <div style={{background:"linear-gradient(135deg,#1d4ed8,#0ea5e9)",padding:"22px 18px 58px",color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
           <div>
@@ -421,10 +297,10 @@ function MahasiswaDashboard({ user, token, onLogout }) {
         </div>
       </div>
 
-      <div style={{padding:"0 14px",marginTop:-38,paddingBottom:90}} className="fade-in">
+      <div style={{padding:"0 14px",marginTop:-38,paddingBottom:90}}>
         {tab==="home"&&(
           <>
-            <div className="mini4" style={{marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
               {[{l:"Hadir",v:hadir,c:"#10b981"},{l:"Izin",v:izin,c:"#f59e0b"},{l:"Sakit",v:sakit,c:"#3b82f6"},{l:"Nilai",v:pct+"%",c:pct>=75?"#10b981":"#ef4444"}].map((s,i)=>(
                 <div key={i} style={{background:"#fff",borderRadius:12,padding:"10px 4px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.08)"}}>
                   <div style={{fontSize:18,fontWeight:800,color:s.c}}>{s.v}</div>
@@ -444,15 +320,14 @@ function MahasiswaDashboard({ user, token, onLogout }) {
               </div>
             )}
             <div style={{fontWeight:700,fontSize:13,color:"#1e293b",marginBottom:8}}>📚 Mata Kuliah</div>
-            {courses.length===0&&<div className="card" style={{textAlign:"center",color:"#64748b",fontSize:13}}>Belum ada mata kuliah</div>}
+            {courses.length===0&&<div style={{...G.card,textAlign:"center",color:"#64748b",fontSize:13}}>Belum ada mata kuliah</div>}
             {courses.map(c=>{
               const{sudahMasuk,sudahPulang}=getStatus(c.id);
-              const jamOk=cekJamAbsen(c.time);
-              const j2=parseJam(c.time);
+              const jamOk=cekJamAbsen(c.time); const j2=parseJam(c.time);
               const mNow=new Date().getHours()*60+new Date().getMinutes();
               const berlangsung=j2&&mNow>=j2.mulai&&mNow<=j2.selesai;
               return(
-                <div key={c.id} className="card">
+                <div key={c.id} style={G.card}>
                   <div style={{marginBottom:10}}>
                     <div style={{fontWeight:700,color:"#1e293b",fontSize:14}}>{c.name}</div>
                     <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{c.code} • {c.room}</div>
@@ -471,7 +346,7 @@ function MahasiswaDashboard({ user, token, onLogout }) {
                         <div style={{fontSize:11,color:"#64748b",fontWeight:700}}>{sudahMasuk.time}</div>
                       </div>
                     ):(
-                      <button className="btn btn-success" style={{flex:1,justifyContent:"center",fontSize:12,padding:"9px 8px",opacity:(jamOk.boleh&&dalamRadius)?1:.4}} disabled={!jamOk.boleh||!dalamRadius} onClick={()=>setModal({course:c,tipe:"masuk"})}>🟢 Masuk</button>
+                      <button style={{...G.btn("linear-gradient(135deg,#059669,#10b981)"),flex:1,justifyContent:"center",fontSize:12,padding:"9px 4px",opacity:(jamOk.boleh&&dalamRadius)?1:.4}} disabled={!jamOk.boleh||!dalamRadius} onClick={()=>setModal({course:c,tipe:"masuk"})}>🟢 Masuk</button>
                     )}
                     {sudahPulang?(
                       <div style={{flex:1,background:"#fff7ed",borderRadius:9,padding:"7px 10px",textAlign:"center",border:"1.5px solid #f59e0b"}}>
@@ -479,7 +354,7 @@ function MahasiswaDashboard({ user, token, onLogout }) {
                         <div style={{fontSize:11,color:"#64748b",fontWeight:700}}>{sudahPulang.time}</div>
                       </div>
                     ):sudahMasuk?(
-                      <button className="btn btn-warning" style={{flex:1,justifyContent:"center",fontSize:12,padding:"9px 8px",opacity:(jamOk.boleh&&dalamRadius)?1:.4}} disabled={!jamOk.boleh||!dalamRadius} onClick={()=>setModal({course:c,tipe:"pulang"})}>🔴 Pulang</button>
+                      <button style={{...G.btn("linear-gradient(135deg,#d97706,#f59e0b)"),flex:1,justifyContent:"center",fontSize:12,padding:"9px 4px",opacity:(jamOk.boleh&&dalamRadius)?1:.4}} disabled={!jamOk.boleh||!dalamRadius} onClick={()=>setModal({course:c,tipe:"pulang"})}>🔴 Pulang</button>
                     ):(
                       <div style={{flex:1,background:"#f8faff",borderRadius:9,padding:"7px 10px",textAlign:"center",border:"1.5px solid #e2e8f0"}}>
                         <div style={{fontSize:10,color:"#94a3b8"}}>Masuk dulu</div>
@@ -495,9 +370,9 @@ function MahasiswaDashboard({ user, token, onLogout }) {
         {tab==="log"&&(
           <>
             <div style={{fontWeight:700,fontSize:13,color:"#1e293b",marginBottom:8,marginTop:4}}>📋 Log Absensi</div>
-            <div className="card" style={{marginBottom:12}}>
+            <div style={{...G.card,marginBottom:12}}>
               <div style={{fontWeight:600,marginBottom:8,fontSize:13}}>📊 Rekap Kehadiran</div>
-              <div className="mini4" style={{marginBottom:10}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:10}}>
                 {[{l:"Hadir",v:hadir,c:"#10b981"},{l:"Izin",v:izin,c:"#f59e0b"},{l:"Sakit",v:sakit,c:"#3b82f6"},{l:"Alpha",v:alpha,c:"#ef4444"}].map((s,i)=>(
                   <div key={i} style={{background:"#f8faff",borderRadius:10,padding:"8px 4px",textAlign:"center"}}>
                     <div style={{fontWeight:800,fontSize:16,color:s.c}}>{s.v}</div>
@@ -511,9 +386,9 @@ function MahasiswaDashboard({ user, token, onLogout }) {
               </div>
               {pct<75&&<div style={{fontSize:10,color:"#ef4444",marginTop:5}}>⚠️ Kehadiran di bawah 75%!</div>}
             </div>
-            {riwayat.length===0&&<div className="card" style={{textAlign:"center",color:"#64748b",fontSize:13}}>Belum ada riwayat</div>}
+            {riwayat.length===0&&<div style={{...G.card,textAlign:"center",color:"#64748b",fontSize:13}}>Belum ada riwayat</div>}
             {riwayat.map((a,i)=>(
-              <div key={i} className="card" style={{padding:"12px 14px"}}>
+              <div key={i} style={{...G.card,padding:"12px 14px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:600,color:"#1e293b",fontSize:13}}>{a.matkul_name}</div>
@@ -537,22 +412,23 @@ function MahasiswaDashboard({ user, token, onLogout }) {
         )}
       </div>
 
+      {/* Bottom Nav */}
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#fff",borderTop:"1px solid #e2e8f0",padding:"6px 14px 12px",zIndex:50}}>
-        <div className="nav-tabs">
+        <div style={{display:"flex",background:"#f0f4ff",borderRadius:12,padding:4,gap:4}}>
           {[{k:"home",l:"🏠 Beranda"},{k:"log",l:"📋 Log Absensi"}].map(t=>(
-            <button key={t.k} className={`nav-tab ${tab===t.k?"active":""}`} onClick={()=>setTab(t.k)}>{t.l}</button>
+            <button key={t.k} onClick={()=>setTab(t.k)} style={{flex:1,padding:"10px 0",border:"none",cursor:"pointer",borderRadius:10,fontFamily:"Outfit,sans-serif",fontSize:12,fontWeight:tab===t.k?700:500,color:tab===t.k?"#1d4ed8":"#64748b",background:tab===t.k?"#fff":"transparent"}}>{t.l}</button>
           ))}
         </div>
       </div>
 
-      {toast.msg&&<div className="toast" style={{background:toast.type==="success"?"#10b981":"#ef4444"}}>{toast.msg}</div>}
+      {toast.msg&&<div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#10b981":"#ef4444",color:"#fff",padding:"11px 24px",borderRadius:30,fontWeight:700,fontSize:13,zIndex:9999,whiteSpace:"nowrap"}}>{toast.msg}</div>}
       {modal&&lokasi&&<AbsenModal course={modal.course} tipe={modal.tipe} token={token} lokasi={lokasi} jarak={jarak} onClose={()=>setModal(null)} onSuccess={()=>{refreshRiwayat();showToast(`✅ ${modal.tipe==="masuk"?"Absen masuk":"Absen pulang"} berhasil!`);}} />}
       {modal&&!lokasi&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
-          <div style={{background:"#fff",borderRadius:18,padding:24,maxWidth:300,textAlign:"center"}}>
+          <div style={{background:"#fff",borderRadius:18,padding:24,maxWidth:300,textAlign:"center",fontFamily:"Outfit,sans-serif"}}>
             <div style={{fontSize:44,marginBottom:10}}>📍</div>
             <div style={{fontWeight:700,color:"#991b1b"}}>GPS Tidak Aktif!</div>
-            <button className="btn btn-secondary" onClick={()=>setModal(null)} style={{marginTop:14,width:"100%",justifyContent:"center"}}>Tutup</button>
+            <button style={{...G.btn("#f0f4ff","#64748b"),marginTop:14,width:"100%",justifyContent:"center"}} onClick={()=>setModal(null)}>Tutup</button>
           </div>
         </div>
       )}
@@ -564,25 +440,23 @@ function MahasiswaDashboard({ user, token, onLogout }) {
 function AdminDashboard({ user, token, onLogout }) {
   const [tab,setTab]=useState("overview");
   const [sidebarOpen,setSidebarOpen]=useState(false);
-  const [laporan,setLaporan]=useState([]);
-  const [absensi,setAbsensi]=useState([]);
-  const [courses,setCourses]=useState([]);
+  const [laporan,setLaporan]=useState([]); const [absensi,setAbsensi]=useState([]); const [courses,setCourses]=useState([]);
   const [nm,setNm]=useState({name:"",code:"",day:"",time:"",room:""});
-  const [loadingAdd,setLoadingAdd]=useState(false);
-  const [loadingExport,setLoadingExport]=useState("");
-  const [hapusData,setHapusData]=useState(null);
-  const [toast,setToast]=useState({msg:"",type:"success"});
+  const [loadingAdd,setLoadingAdd]=useState(false); const [loadingExport,setLoadingExport]=useState("");
+  const [hapusData,setHapusData]=useState(null); const [toast,setToast]=useState({msg:"",type:"success"});
   const [filter,setFilter]=useState("");
+  const [isMobile,setIsMobile]=useState(window.innerWidth<=768);
 
   useEffect(()=>{
     api.get("/laporan/semua",token).then(d=>setLaporan(Array.isArray(d)?d:[]));
     api.get("/absensi/semua",token).then(d=>setAbsensi(Array.isArray(d)?d:[]));
     api.get("/matkul",token).then(d=>setCourses(Array.isArray(d)?d:[]));
+    const handleResize=()=>setIsMobile(window.innerWidth<=768);
+    window.addEventListener("resize",handleResize);
+    return()=>window.removeEventListener("resize",handleResize);
   },[]);
 
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast({msg:"",type:"success"}),3000);};
-  const refreshAbsensi=()=>api.get("/absensi/semua",token).then(d=>setAbsensi(Array.isArray(d)?d:[]));
-
   const tambah=async()=>{
     if (!nm.name||!nm.code) return alert("Nama dan kode wajib diisi!");
     setLoadingAdd(true);
@@ -591,227 +465,211 @@ function AdminDashboard({ user, token, onLogout }) {
     else showToast(r.message,"error");
     setLoadingAdd(false);
   };
-
   const hapusAbsensi=async()=>{
     if (!hapusData) return;
     try {
       const r=await api.delete(`/absensi/${hapusData.id}`,token);
       if (r.success||r.message?.includes("berhasil")){setAbsensi(p=>p.filter(a=>a.id!==hapusData.id));showToast("🗑️ Data berhasil dihapus!");}
-      else showToast(r.message||"Gagal hapus","error");
+      else showToast(r.message||"Gagal","error");
     } catch{showToast("Gagal menghapus","error");}
     setHapusData(null);
   };
-
-  const handleExportPDF=async()=>{
-    setLoadingExport("pdf");
-    try{await exportPDF(absensi,courses);showToast("✅ PDF berhasil didownload!");}
-    catch(e){showToast("Gagal export PDF","error");}
-    setLoadingExport("");
-  };
-
-  const handleExportExcel=async()=>{
-    setLoadingExport("excel");
-    try{await exportExcel(absensi);showToast("✅ Excel berhasil didownload!");}
-    catch(e){showToast("Gagal export Excel","error");}
-    setLoadingExport("");
-  };
-
+  const handleExportPDF=async()=>{setLoadingExport("pdf");try{await exportPDF(absensi,courses);showToast("✅ PDF didownload!");}catch{showToast("Gagal export PDF","error");}setLoadingExport("");};
+  const handleExportExcel=async()=>{setLoadingExport("excel");try{await exportExcel(absensi);showToast("✅ Excel didownload!");}catch{showToast("Gagal export Excel","error");}setLoadingExport("");};
   const absensiFiltered=filter?absensi.filter(a=>a.mahasiswa_name?.toLowerCase().includes(filter.toLowerCase())||a.nim?.includes(filter)||a.matkul_name?.toLowerCase().includes(filter.toLowerCase())):absensi;
 
-  const navItems=[
-    {k:"overview",i:"🏠",l:"Overview"},
-    {k:"matkul",i:"📚",l:"Matkul"},
-    {k:"mahasiswa",i:"👥",l:"Mahasiswa"},
-    {k:"laporan",i:"📊",l:"Laporan"},
-  ];
+  const navItems=[{k:"overview",i:"🏠",l:"Overview"},{k:"matkul",i:"📚",l:"Matkul"},{k:"mahasiswa",i:"👥",l:"Mahasiswa"},{k:"laporan",i:"📊",l:"Laporan"}];
   const setT=k=>{setTab(k);setSidebarOpen(false);};
 
+  const mainContent = (
+    <div style={{padding:isMobile?"12px 14px":"24px",paddingBottom:isMobile?90:24,minHeight:"100vh",background:"#f0f4ff",fontFamily:"Outfit,sans-serif",width:"100%"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Outfit',sans-serif;background:#f0f4ff;}`}</style>
+
+      {/* Top bar */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        {isMobile&&(
+          <button onClick={()=>setSidebarOpen(true)} style={{background:"#1d4ed8",border:"none",borderRadius:10,padding:"8px 11px",cursor:"pointer",fontSize:18,color:"#fff",flexShrink:0}}>☰</button>
+        )}
+        <div>
+          <div style={{fontSize:isMobile?18:22,fontWeight:800,color:"#1e293b"}}>{navItems.find(n=>n.k===tab)?.i} {navItems.find(n=>n.k===tab)?.l}</div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Halo, {user.name}</div>
+        </div>
+      </div>
+
+      {tab==="overview"&&(
+        <>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:12,marginBottom:18}}>
+            {[{l:"Mahasiswa",v:laporan.length,c:"#1d4ed8"},{l:"Mata Kuliah",v:courses.length,c:"#0ea5e9"},{l:"Total Absensi",v:absensi.length,c:"#10b981"}].map((s,i)=>(
+              <div key={i} style={{background:"#fff",borderRadius:14,padding:"16px",boxShadow:"0 2px 10px rgba(0,0,0,.06)",border:"1px solid #e2e8f0"}}>
+                <div style={{fontSize:isMobile?24:28,fontWeight:900,color:s.c}}>{s.v}</div>
+                <div style={{fontSize:12,color:"#64748b",marginTop:4}}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+          <div style={G.card}>
+            <div style={{fontWeight:700,marginBottom:10,color:"#1e293b",fontSize:14}}>⚙️ Pengaturan Sistem</div>
+            <div style={{fontSize:13,color:"#64748b",lineHeight:2}}>
+              🏫 <b>{KAMPUS.nama}</b><br/>
+              📏 Radius: <b style={{color:"#10b981"}}>{RADIUS_METER} meter</b><br/>
+              ⏰ Jam: <b style={{color:"#1d4ed8"}}>Sesuai jam matkul</b><br/>
+              📸 <b>Selfie + GPS + Absen Masuk & Pulang</b>
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab==="matkul"&&(
+        <>
+          <div style={{...G.card,marginBottom:16}}>
+            <div style={{fontWeight:700,marginBottom:12,color:"#1e293b",fontSize:14}}>➕ Tambah Mata Kuliah</div>
+            <div style={{fontSize:12,color:"#0ea5e9",marginBottom:10,background:"#f0f9ff",padding:"7px 11px",borderRadius:8}}>💡 Format jam: <b>08:00-12:00</b></div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:10}}>
+              {[{k:"name",l:"Nama Matkul",p:"Pemrograman Web"},{k:"code",l:"Kode",p:"TI301"},{k:"day",l:"Hari",p:"Senin"},{k:"time",l:"Jam",p:"08:00-12:00"},{k:"room",l:"Ruangan",p:"Lab A"}].map(f=>(
+                <div key={f.k}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#64748b",display:"block",marginBottom:4}}>{f.l}</label>
+                  <input style={G.input} value={nm[f.k]} onChange={e=>setNm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p} />
+                </div>
+              ))}
+            </div>
+            <button style={{...G.btn("linear-gradient(135deg,#1d4ed8,#0ea5e9)"),marginTop:14,opacity:loadingAdd?.6:1}} onClick={tambah} disabled={loadingAdd}>{loadingAdd?"Menyimpan...":"✓ Tambah Matkul"}</button>
+          </div>
+          {courses.length===0&&<div style={{...G.card,textAlign:"center",color:"#64748b"}}>Belum ada mata kuliah</div>}
+          {courses.map(c=>(
+            <div key={c.id} style={G.card}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div><div style={{fontWeight:700,color:"#1e293b",fontSize:14}}>{c.name}</div><div style={{fontSize:12,color:"#64748b",marginTop:3}}>{c.code} • {c.day} • {c.room}</div></div>
+                <div style={{fontWeight:700,color:"#1d4ed8",fontSize:13}}>⏰ {c.time}</div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {tab==="mahasiswa"&&(
+        <>
+          {laporan.length===0&&<div style={{...G.card,textAlign:"center",color:"#64748b"}}>Belum ada data</div>}
+          {laporan.map(m=>(
+            <div key={m.id} style={G.card}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#1d4ed8,#0ea5e9)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:17,flexShrink:0}}>{m.name?.[0]}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,color:"#1e293b",fontSize:14}}>{m.name}</div>
+                  <div style={{fontSize:11,color:"#64748b"}}>{m.nim} • {m.prodi}</div>
+                  <div style={{marginTop:7,background:"#f0f4ff",borderRadius:20,height:6,overflow:"hidden"}}>
+                    <div style={{width:(m.persentase||0)+"%",height:"100%",background:m.persentase>=75?"#10b981":"#ef4444",borderRadius:20}} />
+                  </div>
+                  <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Kehadiran: {m.persentase||0}%</div>
+                </div>
+                <div style={{fontWeight:800,fontSize:18,color:m.persentase>=75?"#10b981":"#ef4444",flexShrink:0}}>{m.persentase||0}%</div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {tab==="laporan"&&(
+        <>
+          {/* Export buttons */}
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button style={{...G.btn("linear-gradient(135deg,#dc2626,#ef4444)"),flex:1,justifyContent:"center"}} onClick={handleExportPDF} disabled={loadingExport==="pdf"}>
+                {loadingExport==="pdf"?"⏳ Exporting...":"📄 Export PDF"}
+              </button>
+              <button style={{...G.btn("linear-gradient(135deg,#15803d,#22c55e)"),flex:1,justifyContent:"center"}} onClick={handleExportExcel} disabled={loadingExport==="excel"}>
+                {loadingExport==="excel"?"⏳ Exporting...":"📊 Export Excel"}
+              </button>
+            </div>
+            <input style={{...G.input}} placeholder="🔍 Cari nama / NIM / mata kuliah..." value={filter} onChange={e=>setFilter(e.target.value)} />
+          </div>
+          <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>Total: <b>{absensiFiltered.length}</b> data</div>
+          <div style={{overflowX:"auto",borderRadius:14,boxShadow:"0 2px 12px rgba(0,0,0,.06)",WebkitOverflowScrolling:"touch"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",background:"#fff",minWidth:700}}>
+              <thead>
+                <tr>{["No","Nama","NIM","Mata Kuliah","Tanggal","🟢 Masuk","🔴 Pulang","Lokasi","Status","Hapus"].map(h=><th key={h} style={{padding:"11px 10px",textAlign:"left",fontSize:11,fontWeight:700,background:"#1d4ed8",color:"#fff",whiteSpace:"nowrap"}}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {absensiFiltered.length===0&&<tr><td colSpan={10} style={{textAlign:"center",color:"#64748b",padding:28,fontSize:13}}>Belum ada data absensi</td></tr>}
+                {absensiFiltered.map((a,i)=>(
+                  <tr key={a.id||i} style={{background:i%2===0?"#fff":"#f8faff"}}>
+                    <td style={{padding:"10px 10px",fontSize:11,color:"#94a3b8",textAlign:"center"}}>{i+1}</td>
+                    <td style={{padding:"10px 10px",fontSize:11,fontWeight:600,color:"#1e293b"}}>{a.mahasiswa_name}</td>
+                    <td style={{padding:"10px 10px",fontSize:11,color:"#64748b"}}>{a.nim}</td>
+                    <td style={{padding:"10px 10px",fontSize:11,color:"#64748b"}}>{a.matkul_name}</td>
+                    <td style={{padding:"10px 10px",fontSize:11,color:"#64748b",whiteSpace:"nowrap"}}>{a.date?new Date(a.date).toLocaleDateString("id-ID"):"-"}</td>
+                    <td style={{padding:"10px 10px",fontSize:11}}><span style={{color:"#065f46",fontWeight:700}}>🟢 {a.time||"-"}</span></td>
+                    <td style={{padding:"10px 10px",fontSize:11}}><span style={{color:"#92400e",fontWeight:700}}>🔴 {a.pulang_time||"-"}</span></td>
+                    <td style={{padding:"10px 10px",fontSize:10,color:"#64748b"}}>{a.latitude?`📍${parseFloat(a.latitude).toFixed(3)}`:"-"}</td>
+                    <td style={{padding:"10px 10px"}}><Badge status={a.status} /></td>
+                    <td style={{padding:"10px 10px"}}>
+                      <button onClick={()=>setHapusData(a)} style={{padding:"5px 10px",border:"none",borderRadius:8,background:"#ef4444",color:"#fff",fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>🗑️</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <div className="admin-wrap">
-      <style>{css}</style>
+    <div style={{fontFamily:"Outfit,sans-serif",background:"#f0f4ff",minHeight:"100vh"}}>
+      {/* Overlay mobile */}
+      {isMobile&&sidebarOpen&&(
+        <div onClick={()=>setSidebarOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:199}} />
+      )}
 
-      {/* Overlay for mobile sidebar */}
-      <div className={`overlay ${sidebarOpen?"open":""}`} onClick={()=>setSidebarOpen(false)} />
-
-      {/* Sidebar (desktop) */}
-      <div className={`sidebar ${sidebarOpen?"open":""}`}>
-        <div style={{color:"#fff",fontWeight:900,fontSize:18,marginBottom:24,paddingLeft:6,paddingTop:6}}>
+      {/* Sidebar */}
+      <div style={{
+        width:220, background:"linear-gradient(160deg,#1e3a8a,#1d4ed8)",
+        padding:"20px 14px", display:"flex", flexDirection:"column", gap:4,
+        position:"fixed", left:0, top:0, bottom:0, zIndex:200,
+        transition:"transform .3s",
+        transform: isMobile ? (sidebarOpen?"translateX(0)":"translateX(-100%)") : "translateX(0)",
+        overflowY:"auto",
+      }}>
+        <div style={{color:"#fff",fontWeight:900,fontSize:17,marginBottom:22,paddingLeft:4}}>
           AbsensiKu
           <div style={{fontSize:11,fontWeight:400,opacity:.6,marginTop:2}}>Panel Admin</div>
         </div>
         {navItems.map(n=>(
-          <button key={n.k} className={`si ${tab===n.k?"active":""}`} onClick={()=>setT(n.k)}>
+          <button key={n.k} onClick={()=>setT(n.k)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,border:"none",background:tab===n.k?"rgba(255,255,255,.2)":"transparent",color:"#fff",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:tab===n.k?700:400,width:"100%",textAlign:"left"}}>
             <span style={{fontSize:17}}>{n.i}</span>{n.l}
           </button>
         ))}
         <div style={{flex:1}} />
-        <button className="si logout" onClick={onLogout}><span>🚪</span>Keluar</button>
+        <button onClick={onLogout} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,border:"none",background:"transparent",color:"rgba(255,255,255,.6)",cursor:"pointer",fontFamily:"inherit",fontSize:13,width:"100%",textAlign:"left"}}>
+          <span>🚪</span>Keluar
+        </button>
       </div>
 
-      {/* Main Content */}
-      <div className="admin-main fade-in">
-        {/* Header */}
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-          {/* Hamburger hanya di mobile */}
-          <button onClick={()=>setSidebarOpen(p=>!p)} style={{display:"none",background:"#1d4ed8",border:"none",borderRadius:10,padding:"8px 10px",cursor:"pointer",fontSize:18,color:"#fff",flexShrink:0}} className="mobile-hamburger">☰</button>
-          <div>
-            <div style={{fontSize:20,fontWeight:800,color:"#1e293b"}}>{navItems.find(n=>n.k===tab)?.i} {navItems.find(n=>n.k===tab)?.l}</div>
-            <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Selamat datang, {user.name}</div>
+      {/* Main — full width on mobile, with left margin on desktop */}
+      <div style={{marginLeft:isMobile?0:220,minHeight:"100vh",background:"#f0f4ff"}}>
+        {mainContent}
+      </div>
+
+      {/* Bottom Nav MOBILE ONLY */}
+      {isMobile&&(
+        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#fff",borderTop:"2px solid #e2e8f0",zIndex:300,padding:"6px 0 10px"}}>
+          <div style={{display:"flex",justifyContent:"space-around"}}>
+            {[...navItems,{k:"__logout",i:"🚪",l:"Keluar"}].map(n=>(
+              <button key={n.k} onClick={()=>n.k==="__logout"?onLogout():setT(n.k)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"5px 8px",border:"none",background:"transparent",cursor:"pointer",fontFamily:"inherit",fontSize:10,color:tab===n.k?"#1d4ed8":"#64748b",minWidth:54}}>
+                <div style={{fontSize:20,padding:"3px 7px",borderRadius:9,background:tab===n.k?"#eff6ff":"transparent"}}>{n.i}</div>
+                <span style={{fontWeight:tab===n.k?700:400}}>{n.l}</span>
+              </button>
+            ))}
           </div>
         </div>
+      )}
 
-        {tab==="overview"&&(
-          <>
-            <div className="stats-grid">
-              {[{l:"Mahasiswa",v:laporan.length,c:"#1d4ed8"},{l:"Mata Kuliah",v:courses.length,c:"#0ea5e9"},{l:"Total Absensi",v:absensi.length,c:"#10b981"}].map((s,i)=>(
-                <div key={i} className="stat-card">
-                  <div style={{fontSize:28,fontWeight:900,color:s.c}}>{s.v}</div>
-                  <div style={{fontSize:12,color:"#64748b",marginTop:4}}>{s.l}</div>
-                </div>
-              ))}
-            </div>
-            <div className="card">
-              <div style={{fontWeight:700,marginBottom:10,color:"#1e293b",fontSize:14}}>⚙️ Pengaturan Sistem</div>
-              <div style={{fontSize:13,color:"#64748b",lineHeight:2}}>
-                🏫 Kampus: <b>{KAMPUS.nama}</b><br/>
-                📏 Radius: <b style={{color:"#10b981"}}>{RADIUS_METER} meter</b><br/>
-                ⏰ Jam: <b style={{color:"#1d4ed8"}}>Sesuai jam matkul</b><br/>
-                📸 Fitur: <b>Selfie + GPS + Absen Masuk & Pulang</b>
-              </div>
-            </div>
-          </>
-        )}
-
-        {tab==="matkul"&&(
-          <>
-            <div className="stat-card" style={{marginBottom:18}}>
-              <div style={{fontWeight:700,marginBottom:12,color:"#1e293b",fontSize:14}}>➕ Tambah Mata Kuliah</div>
-              <div style={{fontSize:12,color:"#0ea5e9",marginBottom:10,background:"#f0f9ff",padding:"7px 11px",borderRadius:8}}>💡 Format jam: <b>08:00-12:00</b></div>
-              <div className="form-grid">
-                {[{k:"name",l:"Nama Matkul",p:"Pemrograman Web"},{k:"code",l:"Kode",p:"TI301"},{k:"day",l:"Hari",p:"Senin"},{k:"time",l:"Jam",p:"08:00-12:00"},{k:"room",l:"Ruangan",p:"Lab A"}].map(f=>(
-                  <div key={f.k}>
-                    <label style={{fontSize:11,fontWeight:600,color:"#64748b",display:"block",marginBottom:4}}>{f.l}</label>
-                    <input className="input" value={nm[f.k]} onChange={e=>setNm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p} />
-                  </div>
-                ))}
-              </div>
-              <button className="btn btn-primary" onClick={tambah} disabled={loadingAdd} style={{marginTop:14}}>{loadingAdd?"Menyimpan...":"✓ Tambah Matkul"}</button>
-            </div>
-            {courses.length===0&&<div className="card" style={{textAlign:"center",color:"#64748b"}}>Belum ada mata kuliah</div>}
-            {courses.map(c=>(
-              <div key={c.id} className="card">
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                  <div>
-                    <div style={{fontWeight:700,color:"#1e293b",fontSize:14}}>{c.name}</div>
-                    <div style={{fontSize:12,color:"#64748b",marginTop:3}}>{c.code} • {c.day} • {c.room}</div>
-                  </div>
-                  <div style={{fontWeight:700,color:"#1d4ed8",fontSize:13}}>⏰ {c.time}</div>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        {tab==="mahasiswa"&&(
-          <>
-            {laporan.length===0&&<div className="card" style={{textAlign:"center",color:"#64748b"}}>Belum ada data</div>}
-            {laporan.map(m=>(
-              <div key={m.id} className="card">
-                <div style={{display:"flex",alignItems:"center",gap:12}}>
-                  <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#1d4ed8,#0ea5e9)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:17,flexShrink:0}}>{m.name?.[0]}</div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:700,color:"#1e293b",fontSize:14}}>{m.name}</div>
-                    <div style={{fontSize:11,color:"#64748b"}}>{m.nim} • {m.prodi}</div>
-                    <div style={{marginTop:7,background:"#f0f4ff",borderRadius:20,height:6,overflow:"hidden"}}>
-                      <div style={{width:(m.persentase||0)+"%",height:"100%",background:m.persentase>=75?"#10b981":"#ef4444",borderRadius:20}} />
-                    </div>
-                    <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Kehadiran: {m.persentase||0}%</div>
-                  </div>
-                  <div style={{fontWeight:800,fontSize:18,color:m.persentase>=75?"#10b981":"#ef4444",flexShrink:0}}>{m.persentase||0}%</div>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        {tab==="laporan"&&(
-          <>
-            {/* Toolbar */}
-            <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap",alignItems:"center"}} className="export-bar">
-              <button className="btn btn-pdf" onClick={handleExportPDF} disabled={loadingExport==="pdf"}>
-                {loadingExport==="pdf"?"⏳ ...":"📄 Export PDF"}
-              </button>
-              <button className="btn btn-excel" onClick={handleExportExcel} disabled={loadingExport==="excel"}>
-                {loadingExport==="excel"?"⏳ ...":"📊 Export Excel"}
-              </button>
-              <input className="input" style={{maxWidth:200,marginLeft:"auto"}} placeholder="🔍 Cari..." value={filter} onChange={e=>setFilter(e.target.value)} />
-            </div>
-            <div style={{fontSize:12,color:"#64748b",marginBottom:10}}>Total: <b>{absensiFiltered.length}</b> data</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    {["No","Nama","NIM","Mata Kuliah","Tanggal","🟢 Masuk","🔴 Pulang","Lokasi","Status","Hapus"].map(h=><th key={h}>{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {absensiFiltered.length===0&&<tr><td colSpan={10} style={{textAlign:"center",color:"#64748b",padding:28}}>Belum ada data</td></tr>}
-                  {absensiFiltered.map((a,i)=>(
-                    <tr key={a.id||i}>
-                      <td style={{color:"#94a3b8",textAlign:"center"}}>{i+1}</td>
-                      <td style={{fontWeight:600,color:"#1e293b"}}>{a.mahasiswa_name}</td>
-                      <td style={{color:"#64748b"}}>{a.nim}</td>
-                      <td style={{color:"#64748b"}}>{a.matkul_name}</td>
-                      <td style={{color:"#64748b"}}>{a.date?new Date(a.date).toLocaleDateString("id-ID"):"-"}</td>
-                      <td><span style={{color:"#065f46",fontWeight:700}}>🟢 {a.time||"-"}</span></td>
-                      <td><span style={{color:"#92400e",fontWeight:700}}>🔴 {a.pulang_time||"-"}</span></td>
-                      <td style={{color:"#64748b",fontSize:10}}>{a.latitude?`📍${parseFloat(a.latitude).toFixed(3)}`:"-"}</td>
-                      <td><Badge status={a.status} /></td>
-                      <td><button className="btn btn-danger btn-sm" onClick={()=>setHapusData(a)} title="Hapus">🗑️</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Bottom Nav Admin (MOBILE ONLY) */}
-      <div className="admin-bottom-nav">
-        <div className="admin-bottom-nav-inner">
-          {navItems.map(n=>(
-            <button key={n.k} className={`abn-item ${tab===n.k?"active":""}`} onClick={()=>setT(n.k)}>
-              <div className="abn-icon">{n.i}</div>
-              <span>{n.l}</span>
-            </button>
-          ))}
-          <button className="abn-item" onClick={onLogout}>
-            <div className="abn-icon">🚪</div>
-            <span>Keluar</span>
-          </button>
-        </div>
-      </div>
-
-      {toast.msg&&<div className="toast" style={{background:toast.type==="success"?"#10b981":"#ef4444"}}>{toast.msg}</div>}
+      {toast.msg&&<div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:toast.type==="success"?"#10b981":"#ef4444",color:"#fff",padding:"11px 24px",borderRadius:30,fontWeight:700,fontSize:13,zIndex:9999,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,.2)"}}>{toast.msg}</div>}
       {hapusData&&<ConfirmHapus data={hapusData} onConfirm={hapusAbsensi} onCancel={()=>setHapusData(null)} />}
     </div>
   );
 }
 
-// tambahkan CSS khusus mobile hamburger
-const mobileHamburgerCSS = `
-  @media(max-width:768px){
-    .mobile-hamburger{display:flex!important;}
-  }
-`;
-
 export default function App() {
-  useEffect(()=>{
-    const s=document.createElement("style");
-    s.textContent=mobileHamburgerCSS;
-    document.head.appendChild(s);
-  },[]);
   const [user,setUser]=useState(()=>{try{return JSON.parse(localStorage.getItem("user"));}catch{return null;}});
   const [token,setToken]=useState(()=>localStorage.getItem("token")||null);
   const login=(u,t)=>{setUser(u);setToken(t);};
