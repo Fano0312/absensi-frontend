@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 const API = "https://absensi-backend-production-7b1d.up.railway.app/api";
-const KAMPUS = { lat: -8.4539, lng: 119.8851, nama: "Politeknik eLBajo Commodus" };
+const KAMPUS = { lat: -8.495774, lng: 119.906692, nama: "Politeknik eLBajo Commodus" };
 const RADIUS_METER = 100;
 
 function hitungJarak(lat1, lng1, lat2, lng2) {
