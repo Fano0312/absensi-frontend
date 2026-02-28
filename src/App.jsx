@@ -102,7 +102,7 @@ const api = {
 };
 
 function Badge({ status }) {
-  const c={hadir:{bg:"#d1fae5",color:"#065f46",label:"Hadir"},izin:{bg:"#fef3c7",color:"#92400e",label:"Izin"},sakit:{bg:"#dbeafe",color:"#1e40af",label:"Sakit"},alpha:{bg:"#fee2e2",color:"#991b1b",label:"Alpha"}}[status]||{bg:"#fee2e2",color:"#991b1b",label:"Alpha"};
+  const c={hadir:{bg:"#d1fae5",color:"#065f46",label:"Hadir"},izin:{bg:"#fef3c7",color:"#92400e",label:"Izin"},sakit:{bg:"#dbeafe",color:"#1e40af",label:"Sakit"},alpha:{bg:"#fee2e2",color:"#991b1b",label:"Alpha"},proses:{bg:"#f0f9ff",color:"#0369a1",label:"Sedang Hadir"}}[status]||{bg:"#fee2e2",color:"#991b1b",label:"Alpha"};
   return <span style={{background:c.bg,color:c.color,padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{c.label}</span>;
 }
 
@@ -599,7 +599,7 @@ function AdminDashboard({ user, token, onLogout }) {
                     <td style={{padding:"10px 10px",fontSize:11}}><span style={{color:"#065f46",fontWeight:700}}>🟢 {a.time||"-"}</span></td>
                     <td style={{padding:"10px 10px",fontSize:11}}><span style={{color:"#92400e",fontWeight:700}}>🔴 {a.pulang_time||"-"}</span></td>
                     <td style={{padding:"10px 10px",fontSize:10,color:"#64748b"}}>{a.latitude?`📍${parseFloat(a.latitude).toFixed(3)}`:"-"}</td>
-                    <td style={{padding:"10px 10px"}}><Badge status={a.status} /></td>
+                    <td style={{padding:"10px 10px"}}><Badge status={a.pulang_time ? a.status : "proses"} /></td>
                     <td style={{padding:"10px 10px"}}>
                       <button onClick={()=>setHapusData(a)} style={{padding:"5px 10px",border:"none",borderRadius:8,background:"#ef4444",color:"#fff",fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>🗑️</button>
                     </td>
