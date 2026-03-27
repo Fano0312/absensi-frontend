@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-const API = "https://absensi-backend-production-7b1d.up.railway.app/api";
+const API = "const API = "https://fano0312-absensi-kampus.hf.space/api";
 const KAMPUS = { lat: -8.495774, lng: 119.906692, nama: "Politeknik eLBajo Commodus" };
 const RADIUS_METER = 100;
 
